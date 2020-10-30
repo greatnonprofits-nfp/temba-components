@@ -5,12 +5,11 @@ import {
   html,
   LitElement,
   property,
-  TemplateResult
+  TemplateResult,
 } from "lit-element";
 import { FeatureProperties } from "../interfaces";
 import { getUrl, postUrl } from "../utils";
 import autosize from "autosize";
-import Button from "../button/Button";
 import TextInput from "../textinput/TextInput";
 import { styleMap } from "lit-html/directives/style-map.js";
 import FormElement from "../FormElement";
@@ -24,7 +23,7 @@ export default class AliasEditor extends LitElement {
       }
 
       temba-textinput {
-        height: 150px;
+        --textarea-height: 150px;
       }
 
       #left-column {
@@ -307,9 +306,7 @@ export default class AliasEditor extends LitElement {
       }
     );
 
-    return html`
-      ${renderedFeature} ${renderedChildren}
-    `;
+    return html` ${renderedFeature} ${renderedChildren} `;
   }
 
   public showAliasDialog(feature: FeatureProperties) {
@@ -375,7 +372,7 @@ export default class AliasEditor extends LitElement {
   ): TemplateResult {
     const labelStyles = {
       marginTop: "3px",
-      marginRight: "3px"
+      marginRight: "3px",
     };
 
     const aliasList = option.aliases.split("\n");
@@ -419,6 +416,7 @@ export default class AliasEditor extends LitElement {
             .getOptions=${this.getOptions}
             .isComplete=${this.getOptionsComplete}
             @temba-selection=${this.handleSearchSelection.bind(this)}
+            queryParam="q"
             searchable
           ></temba-select>
         </div>
