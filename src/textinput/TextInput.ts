@@ -119,6 +119,9 @@ export default class TextInput extends FormElement {
   placeholder: string = "";
 
   @property({ type: String })
+  class: string = "";
+
+  @property({ type: String })
   value: string = "";
 
   @property({ type: String })
@@ -339,7 +342,7 @@ export default class TextInput extends FormElement {
 
     let input = html`
       <input
-        class="textinput"
+        class="textinput ${this.class}"
         name=${this.name}
         type="${this.password ? "password" : "text"}"
         maxlength="${ifDefined(this.maxlength)}"
