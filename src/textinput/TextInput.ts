@@ -221,7 +221,7 @@ export default class TextInput extends FormElement {
   private handleClear(event: any): void {
     event.stopPropagation();
     event.preventDefault();
-    this.value = null;
+    this.value = "";
   }
 
   private updateValue(value: string): void {
@@ -383,7 +383,7 @@ export default class TextInput extends FormElement {
           }
         }}
         placeholder=${this.placeholder}
-        value="${this.value}"
+        .value="${this.value}"
       />
     `;
     if (this.textarea) {
