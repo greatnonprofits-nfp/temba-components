@@ -3,3 +3,4 @@ build/
 coverage/
 target/screenshots
 target/diff
+.idea/
