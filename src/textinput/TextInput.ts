@@ -115,14 +115,8 @@ export default class TextInput extends FormElement {
   @property({ type: Boolean })
   datetimepicker: boolean;
 
-  @property({ type: Boolean })
-  color: boolean;
-
   @property({ type: String })
   placeholder: string = "";
-
-  @property({ type: String })
-  class: string = "";
 
   @property({ type: String })
   value: string = "";
@@ -282,16 +276,6 @@ export default class TextInput extends FormElement {
     this.fireEvent("input");
   }
 
-  private handleType(): string {
-    let fieldType = "text";
-    if (this.password) {
-      fieldType = "password";
-    } else if (this.color) {
-      fieldType = "color";
-    }
-    return fieldType;
-  }
-
   /** we just return the value since it should be a string */
   public serializeValue(value: any): string {
     return value;
@@ -343,8 +327,6 @@ export default class TextInput extends FormElement {
       height: `${this.textarea ? "100%" : "auto"}`,
     };
 
-    const fieldType = this.handleType();
-
     const clear =
       this.clearable && this.inputElement && this.inputElement.value
         ? html`<fa-icon
@@ -357,9 +339,9 @@ export default class TextInput extends FormElement {
 
     let input = html`
       <input
-        class="textinput ${this.class}"
+        class="textinput"
         name=${this.name}
-        type=${fieldType}
+        type="${this.password ? "password" : "text"}"
         maxlength="${ifDefined(this.maxlength)}"
         @change=${this.handleChange}
         @input=${this.handleInput}
