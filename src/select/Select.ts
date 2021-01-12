@@ -43,6 +43,7 @@ export default class Select extends FormElement {
         --temba-select-selected-padding: 9px;
         --temba-select-selected-line-height: 16px;
         --temba-select-selected-font-size: 13px;
+        --temba-select-container-min-height: 32px;
       }
 
       .clear-icon {
@@ -115,6 +116,7 @@ export default class Select extends FormElement {
         padding-top: 1px;
         box-shadow: 0 3px 20px 0 rgba(0, 0, 0, 0.04),
           0 1px 2px 0 rgba(0, 0, 0, 0.02);
+        min-height: var(--temba-select-container-min-height);
       }
 
       .select-container:hover {

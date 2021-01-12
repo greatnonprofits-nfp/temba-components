@@ -25,7 +25,8 @@
     "test:watch": "karma start --screenshots --auto-watch=true --single-run=false --mode=development",
     "test:watch-light": "karma start --auto-watch=true --single-run=false --mode=development",
     "test:update-snapshots": "karma start --update-snapshots",
-    "test:prune-snapshots": "karma start --prune-snapshots"
+    "test:prune-snapshots": "karma start --prune-snapshots",
+    "prepare": "yarn build"
   },
   "dependencies": {
     "autosize": "4.0.2",
