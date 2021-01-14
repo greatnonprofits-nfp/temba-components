@@ -10,7 +10,7 @@ function CreateIncludesPlugin(options) {
 
 function getScript(filename, nomodule) {
   return (
-    '<script src="{{STATIC_URL}}@nyaruka/temba-components/build/' +
+    '<script src="{{STATIC_URL}}@greatnonprofits-nfp/temba-components/build/' +
     filename +
     '"' +
     (nomodule ? ' nomodule="">' : ">") +
@@ -35,12 +35,12 @@ CreateIncludesPlugin.prototype.apply = function (compiler) {
 
           loaderSource = loaderSource.replace(
             /\"\.\/temba-components/g,
-            'static_url + "@nyaruka/temba-components/build/temba-components'
+            'static_url + "@greatnonprofits-nfp/temba-components/build/temba-components'
           );
 
           loaderSource = loaderSource.replace(
             /\"polyfills\//g,
-            'static_url + "@nyaruka/temba-components/build/polyfills/'
+            'static_url + "@greatnonprofits-nfp/temba-components/build/polyfills/'
           );
 
           mkdirp(path.resolve(compiler.options.output.path)).then(() => {
@@ -56,7 +56,7 @@ CreateIncludesPlugin.prototype.apply = function (compiler) {
           mkdirp(templates).then((err) => {
             fs.writeFileSync(
               path.resolve(templates, "components-head.html"),
-              '<link rel="preload" href="{{STATIC_URL}}@nyaruka/temba-components/build/' +
+              '<link rel="preload" href="{{STATIC_URL}}@greatnonprofits-nfp/temba-components/build/' +
                 filename +
                 '" as="script"></link>'
             );
