@@ -296,6 +296,7 @@ export default class Modax extends RapidElement {
               }, 0);
             }
           } else {
+            this.open = false; // close modal before redirection (needed to close modal on file download)
             this.ownerDocument.location = redirect;
           }
         } else {
