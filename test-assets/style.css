@@ -1,3 +1,15 @@
+#mocha {
+  display:none;
+}
+
+temba-dialog, temba-modax, temba-contact-history, temba-menu, temba-select {
+  --transition-speed: 0ms !important;
+}
+
+body {
+  padding: 20px;
+}
+
 html input {
   font-weight: 300;
 }
@@ -66,6 +78,8 @@ html {
   --color-link-secondary-hover: rgba(var(--secondary-rgb), 0.9);
   --color-button-primary: var(--color-primary-dark);
   --color-button-primary-text: var(--color-text-light);
+  --color-button-light: rgb(246, 248, 250);
+  --color-button-light-text: rgb(36, 41, 47);
   --color-button-secondary: var(--color-secondary-light);
   --color-button-secondary-text: var(--color-text-dark);
 
@@ -82,25 +96,78 @@ html {
   --color-nav-unselected: #fff;
   --color-nav-selected-bg: #fff;
   --color-nav-selected-text: var(--color-primary-dark);
+  --color-info: rgb(238, 246, 255);
+  --color-info-border: rgb(74, 163, 223);
 
-  --color-info: #c0d9eb;
-  --color-warning: #fff6c0;
+  --color-warning: rgb(255, 253, 218);
+  --color-warning-border: rgb(251, 246, 176);
   --color-error: rgb(var(--error-rgb));
   --font-size: 14px;
   --button-font-size: 1.125rem;
 
   --header-bg: var(--color-primary-dark);
+  --header-text: var(--color-text-light);
 
   --temba-textinput-padding: 9px;
-  --temba-textinput-font-size: var(--font-size);
+  --temba-textinput-font-size: 13px;
 
+  --options-block-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --options-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
   font-size: var(--font-size);
   font-weight: 300;
   font-family: var(--font-family);
 
+  --icon-color: var(--text-color);
+  --icon-color-hover: var(--icon-color);
+  --event-padding: 0.5em 1em;
+  --temba-select-selected-padding: 9px;
+  --temba-select-selected-line-height: 16px;
+  --temba-select-selected-font-size: 13px;
+
+  --help-text-margin-top: 0px;
+  --help-text-margin-left: 0.3em;
+  --help-text-size: 0.85em;
+  --color-text-help: rgb(120,120,120);
+  --label-size: 14px;
+  
   --button-y: 6px;  
   --button-x: 14px;
+
+  --menu-padding: 1em;
 }
+
+temba-button {
+  --button-bg: var(--color-primary-dark);
+  --button-text: var(--color-text-light);
+  --button-border: none;
+  --button-shadow: var(--widget-box-shadow);
+}
+
+temba-button:hover {
+  --button-bg-img: linear-gradient(to bottom, rgba(var(--primary-rgb),.1), transparent, transparent);
+}
+
+temba-button.active {
+  --button-bg-img: linear-gradient(to bottom, transparent, rgba(0,0,0,.05));
+}
+
+temba-button.light {
+  --button-bg: #fff;
+  --button-text: #999;
+  --button-border: none;
+  --button-shadow: var(--widget-box-shadow);
+
+}
+
+temba-button.light:hover {
+  --button-bg-img: linear-gradient(to bottom, transparent, rgba(0,0,0,.001));
+}
+
+temba-button.light.active {
+  --button-bg-img: linear-gradient(to bottom, transparent, rgba(0,0,0,.02));
+}
+
 
 temba-select:focus {
   outline: none;

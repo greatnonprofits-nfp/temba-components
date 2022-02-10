@@ -1,14 +1,6 @@
-import {
-  css,
-  customElement,
-  html,
-  LitElement,
-  property,
-  TemplateResult,
-} from "lit-element";
+import { css, html, LitElement, property, TemplateResult } from 'lit-element';
 
-@customElement("temba-alert")
-export default class Alert extends LitElement {
+export class Alert extends LitElement {
   static get styles() {
     return css`
       :host {
@@ -16,29 +8,36 @@ export default class Alert extends LitElement {
       }
 
       .temba-alert {
-        color: var(--color-text-dark);
-        padding: 8px;
-        border-left: 6px inset rgba(0, 0, 0, 0.2);
+        color: rgba(0, 0, 0, 0.8);
+        padding: 0.65em 1em;
+        border: 1px solid rgba(0, 0, 0, 0.35);
+        border-left: 10px solid rgba(0, 0, 0, 0.35);
         border-radius: var(--curvature-widget);
-        font-size: 12px;
+        font-size: 14px;
+        box-shadow: var(--shadow);
       }
 
       .temba-info {
         background: var(--color-info);
+        border-color: var(--color-info-border);
       }
 
       .temba-warning {
         background: var(--color-warning);
+        border-color: var(--color-warning-border);
       }
 
       .temba-error {
-        color: var(--color-error);
+        border-color: var(--color-error);
+        background: #fff;
+        border: 1px solid var(--color-error);
+        border-left: 10px solid var(--color-error);
       }
     `;
   }
 
   @property({ type: String })
-  level: string = "info";
+  level = 'info';
 
   public render(): TemplateResult {
     return html`

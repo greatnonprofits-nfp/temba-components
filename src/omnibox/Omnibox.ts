@@ -1,18 +1,12 @@
-import {
-  customElement,
-  TemplateResult,
-  html,
-  css,
-  property,
-} from "lit-element";
-import RapidElement from "../RapidElement";
-import { styleMap } from "lit-html/directives/style-map.js";
-import "fa-icons";
+import { TemplateResult, html, css, property } from 'lit-element';
+import { styleMap } from 'lit-html/directives/style-map';
+import { RapidElement } from '../RapidElement';
+import { Select } from '../select/Select';
 
 enum OmniType {
-  Group = "group",
-  Contact = "contact",
-  Urn = "urn",
+  Group = 'group',
+  Contact = 'contact',
+  Urn = 'urn',
 }
 
 interface OmniOption {
@@ -26,13 +20,12 @@ interface OmniOption {
 }
 
 const postNameStyle = {
-  color: "var(--color-text-dark)",
-  padding: "0px 6px",
-  fontSize: "12px",
+  color: 'var(--color-text-dark)',
+  padding: '0px 6px',
+  fontSize: '12px',
 };
 
-@customElement("temba-omnibox")
-export default class Omnibox extends RapidElement {
+export class Omnibox extends RapidElement {
   static get styles() {
     return css`
       temba-select:focus {
@@ -52,13 +45,13 @@ export default class Omnibox extends RapidElement {
   name: string;
 
   @property({ type: Boolean })
-  groups: boolean = false;
+  groups = false;
 
   @property({ type: Boolean })
-  contacts: boolean = false;
+  contacts = false;
 
   @property({ type: Boolean })
-  urns: boolean = false;
+  urns = false;
 
   @property({ type: Array })
   value: OmniOption[] = [];
@@ -67,29 +60,42 @@ export default class Omnibox extends RapidElement {
   errors: string[];
 
   @property()
-  placeholder: string = "Select recipients";
+  placeholder = 'Select recipients';
+
+  @property({ type: Boolean })
+  disabled = false;
+
+  @property({ type: String, attribute: 'help_text' })
+  helpText: string;
+
+  @property({ type: Boolean, attribute: 'help_always' })
+  helpAlways: boolean;
+
+  @property({ type: Boolean, attribute: 'widget_only' })
+  widgetOnly: boolean;
+
+  @property({ type: Boolean, attribute: 'hide_label' })
+  hideLabel: boolean;
+
+  @property({ type: String })
+  label: string;
 
   /** An option in the drop down */
-  private renderOption(option: OmniOption, selected: boolean): TemplateResult {
+  private renderOption(option: OmniOption): TemplateResult {
     return html`
       <div style="display:flex;">
-        <div style="margin-right: 8px">
-          ${this.getIcon(option, true, 14, "")}
-        </div>
+        <div style="margin-right: 8px">${this.getIcon(option)}</div>
         <div style="flex: 1">${option.name}</div>
         <div
           style="background: rgba(50, 50, 50, 0.15); margin-left: 5px; display: flex; align-items: center; border-radius: 4px"
         >
-          ${this.getPostName(option, selected)}
+          ${this.getPostName(option)}
         </div>
       </div>
     `;
   }
 
-  private getPostName(
-    option: OmniOption,
-    selected: boolean = false
-  ): TemplateResult {
+  private getPostName(option: OmniOption): TemplateResult {
     const style = { ...postNameStyle };
 
     if (option.urn && option.type === OmniType.Contact) {
@@ -99,7 +105,9 @@ export default class Omnibox extends RapidElement {
     }
 
     if (option.type === OmniType.Group) {
-      return html` <div style=${styleMap(style)}>${option.count}</div> `;
+      return html`
+        <div style=${styleMap(style)}>${option.count.toLocaleString()}</div>
+      `;
     }
 
     return null;
@@ -112,7 +120,7 @@ export default class Omnibox extends RapidElement {
         style="flex:1 1 auto; display: flex; align-items: stretch; color: var(--color-text-dark); font-size: 12px;"
       >
         <div style="align-self: center; padding: 0px 7px; color: #bbb">
-          ${this.getIcon(option, false, 12, "")}
+          ${this.getIcon(option)}
         </div>
         <div
           class="name"
@@ -129,50 +137,29 @@ export default class Omnibox extends RapidElement {
     `;
   }
 
-  private getIcon(
-    option: OmniOption,
-    asOption: boolean,
-    size: number = 14,
-    styles: any
-  ): TemplateResult {
+  private getIcon(option: OmniOption): TemplateResult {
     if (option.type === OmniType.Group) {
-      return html`
-        <fa-icon
-          class="fas user-friends"
-          size="${size}px"
-          style="margin-bottom: -2px;"
-          path-prefix="/sitestatic"
-        />
-      `;
+      return html` <temba-icon name="users" /> `;
     }
 
     if (option.type === OmniType.Contact) {
-      const style = asOption ? "margin: 0 1px;" : "margin-bottom: 0px;";
-
-      return html`
-        <fa-icon
-          class="fas user"
-          size="${size - 3}px"
-          style="${style}"
-          path-prefix="/sitestatic"
-        />
-      `;
+      return html` <temba-icon name="user" /> `;
     }
   }
 
   private getEndpoint() {
     const endpoint = this.endpoint;
-    let types = "&types=";
+    let types = '&types=';
     if (this.groups) {
-      types += "g";
+      types += 'g';
     }
 
     if (this.contacts) {
-      types += "c";
+      types += 'c';
     }
 
     if (this.urns) {
-      types += "u";
+      types += 'u';
     }
 
     return endpoint + types;
@@ -183,9 +170,14 @@ export default class Omnibox extends RapidElement {
     if (this.urns) {
       const num = parseFloat(input);
       if (!isNaN(num) && isFinite(num)) {
-        return { id: "tel:" + input, name: input, type: "urn" };
+        return { id: 'tel:' + input, name: input, type: 'urn' };
       }
     }
+  }
+
+  public getValues(): any[] {
+    const select = this.shadowRoot.querySelector('temba-select') as Select;
+    return select.values;
   }
 
   public render(): TemplateResult {
@@ -195,6 +187,10 @@ export default class Omnibox extends RapidElement {
         endpoint=${this.getEndpoint()}
         placeholder=${this.placeholder}
         queryParam="search"
+        .label=${this.label}
+        .helpText=${this.helpText}
+        .widgetOnly=${this.widgetOnly}
+        ?disabled=${this.disabled}
         .errors=${this.errors}
         .values=${this.value}
         .renderOption=${this.renderOption.bind(this)}

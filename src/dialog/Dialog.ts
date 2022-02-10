@@ -1,19 +1,17 @@
-import { customElement, property } from "lit-element/lib/decorators";
-import { TemplateResult, html, css } from "lit-element";
-import Button from "../button/Button";
-import RapidElement from "../RapidElement";
-import Shadowless from "../shadowless/Shadowless";
-import { CustomEventType } from "../interfaces";
-import { styleMap } from "lit-html/directives/style-map.js";
-import { getClasses } from "../utils";
+import { property } from 'lit-element/lib/decorators';
+import { TemplateResult, html, css } from 'lit-element';
+import { Button } from '../button/Button';
+import { RapidElement } from '../RapidElement';
+import { CustomEventType } from '../interfaces';
+import { styleMap } from 'lit-html/directives/style-map';
+import { getClasses } from '../utils';
 
-@customElement("temba-dialog")
-export default class Dialog extends RapidElement {
+export class Dialog extends RapidElement {
   static get widths(): { [size: string]: string } {
     return {
-      small: "400px",
-      medium: "600px",
-      large: "655px",
+      small: '400px',
+      medium: '600px',
+      large: '655px',
     };
   }
 
@@ -23,6 +21,7 @@ export default class Dialog extends RapidElement {
         position: absolute;
         z-index: 10000;
         font-family: var(--font-family);
+        background: white;
       }
 
       .flex {
@@ -50,24 +49,26 @@ export default class Dialog extends RapidElement {
         position: fixed;
         top: 0px;
         left: 0px;
-        transition: opacity linear 100ms;
+        transition: opacity linear calc(var(--transition-speed) / 2ms);
         pointer-events: none;
       }
 
       .dialog-container {
         margin-top: -10000px;
         position: relative;
-        transition: transform cubic-bezier(0.71, 0.18, 0.61, 1.33) 250ms,
-          opacity ease-in-out 200ms;
+        transition: transform cubic-bezier(0.71, 0.18, 0.61, 1.33)
+            var(--transition-speed),
+          opacity ease-in-out calc(var(--transition-speed) - 50ms);
         border-radius: var(--curvature);
         box-shadow: 0px 0px 2px 4px rgba(0, 0, 0, 0.06);
         overflow: hidden;
         transform: scale(0.7);
+        background: white;
       }
 
       .dialog-body {
         background: #fff;
-        max-height: 55vh;
+        max-height: 75vh;
         overflow-y: auto;
       }
 
@@ -98,8 +99,8 @@ export default class Dialog extends RapidElement {
         font-size: 20px;
         padding: 12px 20px;
         font-weight: 300;
-        color: var(--color-text-light);
-        background: var(--color-primary-dark);
+        color: var(--header-text);
+        background: var(--header-bg);
       }
 
       .dialog-footer {
@@ -129,7 +130,8 @@ export default class Dialog extends RapidElement {
         margin: auto;
         margin-top: 30px;
         width: 154px;
-        transition: opacity 1000ms ease-in 500ms;
+        transition: opacity calc(var(--transition-speed) * 5ms) ease-in
+          calc(var(--transition-speed * 2));
         visibility: hidden;
       }
 
@@ -161,22 +163,28 @@ export default class Dialog extends RapidElement {
   destructive: boolean;
 
   @property({ type: Boolean })
+  disabled: boolean;
+
+  @property({ type: Boolean })
   loading: boolean;
 
   @property({ type: Boolean })
   hideOnClick: boolean;
 
-  @property()
-  size: string = "medium";
-
-  @property({ type: String })
-  primaryButtonName: string = "Ok";
-
-  @property({ type: String })
-  cancelButtonName: string = "Cancel";
+  @property({ type: Boolean })
+  noFocus: boolean;
 
   @property()
-  submittingName: string = "Saving";
+  size = 'medium';
+
+  @property({ type: String })
+  primaryButtonName = 'Ok';
+
+  @property({ type: String })
+  cancelButtonName = 'Cancel';
+
+  @property()
+  submittingName = 'Saving';
 
   @property()
   animationEnd: boolean;
@@ -194,8 +202,8 @@ export default class Dialog extends RapidElement {
   }
 
   public updated(changedProperties: Map<string, any>) {
-    if (changedProperties.has("open")) {
-      const body = document.querySelector("body");
+    if (changedProperties.has('open')) {
+      const body = document.querySelector('body');
 
       if (this.open) {
         this.animationEnd = true;
@@ -204,30 +212,31 @@ export default class Dialog extends RapidElement {
           this.animationEnd = false;
         }, 400);
 
+        const scrollbarWidth = window.outerWidth - body.clientWidth;
         this.scrollOffset = -document.documentElement.scrollTop;
-        body.style.position = "fixed";
-        body.style.overflowY = "scroll";
-        body.style.top = this.scrollOffset + "px";
-        body.style.width = "100%";
+        body.style.position = 'fixed';
+        body.style.overflowY = 'scroll';
+        body.style.top = this.scrollOffset + 'px';
+        body.style.width = '100%';
+        body.style.overflowY = 'hidden';
+        body.style.paddingRight = scrollbarWidth + 'px';
       } else {
-        body.style.position = "";
-        body.style.overflowY = "";
-        body.style.width = "";
-        window.scrollTo(0, parseInt(this.scrollOffset || "0") * -1);
+        body.style.position = '';
+        body.style.overflowY = '';
+        body.style.width = '';
+        body.style.marginRight = '';
+        body.style.paddingRight = '0px';
+        window.scrollTo(0, parseInt(this.scrollOffset || '0') * -1);
       }
 
       // make sure our buttons aren't in progress on show
-      if (this.open) {
+      if (this.open && !changedProperties.get('open')) {
         this.shadowRoot
-          .querySelectorAll("temba-button")
+          .querySelectorAll('temba-button')
           .forEach((button: Button) => (button.disabled = false));
-        const inputs = this.querySelectorAll("textarea,input");
-        if (inputs.length > 0) {
-          window.setTimeout(() => {
-            const input = inputs[0] as any;
-            input.click();
-            input.focus();
-          }, 100);
+
+        if (!this.noFocus) {
+          this.focusFirstInput();
         }
       } else {
         window.setTimeout(() => {
@@ -235,6 +244,21 @@ export default class Dialog extends RapidElement {
         }, 400);
       }
     }
+  }
+
+  public focusFirstInput(): void {
+    window.setTimeout(() => {
+      let input = this.querySelector(
+        'temba-textinput, temba-completion, input[type="text"], textarea'
+      ) as any;
+      if (input) {
+        input = input.textInputElement || input.inputElement || input;
+        if (!input.readOnly) {
+          input.focus();
+          input.click();
+        }
+      }
+    }, 100);
   }
 
   public handleClick(evt: MouseEvent) {
@@ -272,8 +296,12 @@ export default class Dialog extends RapidElement {
     );
   }
 
+  public getPrimaryButton(): Button {
+    return this.shadowRoot.querySelector(`temba-button[primary]`);
+  }
+
   private handleKeyUp(event: KeyboardEvent) {
-    if (event.key === "Escape") {
+    if (event.key === 'Escape') {
       this.clickCancel();
     }
   }
@@ -281,20 +309,30 @@ export default class Dialog extends RapidElement {
   private handleClickMask(event: MouseEvent) {
     if (this.hideOnClick) {
       const id = (event.target as HTMLElement).id;
-      if (id === "dialog-mask" || id === "dialog-bg") {
+      if (id === 'dialog-mask' || id === 'dialog-bg') {
         this.fireCustomEvent(CustomEventType.DialogHidden);
         this.clickCancel();
       }
     }
   }
 
+  public show(): void {
+    this.open = true;
+  }
+
+  public hide(): void {
+    this.open = false;
+  }
+
   public render(): TemplateResult {
     const height = this.getDocumentHeight();
 
-    const maskStyle = { height: `${height + 100}px` };
+    const maskStyle = {
+      height: `${height + 100}px`,
+    };
     const dialogStyle = { width: Dialog.widths[this.size] };
 
-    let header = this.header
+    const header = this.header
       ? html`
           <div class="dialog-header">
             <div class="header-text">${this.header}</div>
@@ -307,10 +345,10 @@ export default class Dialog extends RapidElement {
         id="dialog-mask"
         @click=${this.handleClickMask}
         class="dialog-mask ${getClasses({
-          "dialog-open": this.open,
-          "dialog-loading": this.loading,
-          "dialog-animation-end": this.animationEnd,
-          "dialog-ready": this.ready,
+          'dialog-open': this.open,
+          'dialog-loading': this.loading,
+          'dialog-animation-end': this.animationEnd,
+          'dialog-ready': this.ready,
         })}"
         style=${styleMap(maskStyle)}
       >
@@ -332,7 +370,7 @@ export default class Dialog extends RapidElement {
           >
             ${header}
             <div class="dialog-body" @keypress=${this.handleKeyUp}>
-              ${this.body ? this.body : html` <slot></slot> `}
+              ${this.body ? this.body : html`<slot></slot>`}
               <temba-loading units="6" size="8"></temba-loading>
             </div>
 
@@ -346,6 +384,7 @@ export default class Dialog extends RapidElement {
                           ?destructive=${this.destructive}
                           ?primary=${!this.destructive}
                           ?submitting=${this.submitting}
+                          ?disabled=${this.disabled}
                           >}</temba-button
                         >
                       `

@@ -1,21 +1,21 @@
-import {
-  LitElement,
-  TemplateResult,
-  html,
-  css,
-  customElement,
-  property,
-} from "lit-element";
-import { getClasses } from "../utils";
+import { LitElement, TemplateResult, html, css, property } from 'lit-element';
+import { getClasses } from '../utils';
 
-@customElement("temba-button")
-export default class Button extends LitElement {
+export class Button extends LitElement {
   static get styles() {
     return css`
       :host {
         display: inline-block;
         font-family: var(--font-family);
-        font-weight: 300;
+        font-weight: 400;
+      }
+
+      .v-2.button-container {
+        background: var(--button-bg);
+        background-image: var(--button-bg-img);
+        color: var(--button-text);
+        box-shadow: var(--button-shadow);
+        transition: all 100ms ease-in;
       }
 
       .button-container {
@@ -24,10 +24,14 @@ export default class Button extends LitElement {
         display: block;
         border-radius: var(--curvature);
         outline: none;
-        transition: background ease-in 100ms;
+        transition: background ease-in 200ms;
         user-select: none;
+        -webkit-user-select: none;
         text-align: center;
-        font-weight: 400;
+      }
+
+      .button-name {
+        white-space: nowrap;
       }
 
       .secondary-button:hover .button-mask {
@@ -35,7 +39,7 @@ export default class Button extends LitElement {
       }
 
       .button-mask:hover {
-        background: rgba(0, 0, 0, 0.1);
+        background: rgba(0, 0, 0, 0.05);
       }
 
       .button-container:focus {
@@ -43,25 +47,24 @@ export default class Button extends LitElement {
         margin: 0;
       }
 
-      .button-container:focus .button-mask {
-        background: rgb(0, 0, 0, 0.1);
-        box-shadow: 0 0 0px 1px var(--color-focus);
+      .button-container:focus {
+        box-shadow: var(--widget-box-shadow-focused);
       }
 
       .button-container.secondary-button:focus .button-mask {
         background: transparent;
-        box-shadow: 0 0 0px 1px var(--color-focus);
       }
 
       .button-mask {
         padding: var(--button-y) var(--button-x);
         border-radius: var(--curvature);
         border: 1px solid transparent;
-        transition: all ease-in 250ms;
+        transition: all ease-in 200ms;
+        background: var(--button-mask);
       }
 
       .button-container.disabled-button {
-        background: rgb(0, 0, 0, 0.05);
+        background: rgba(0, 0, 0, 0.05);
         color: rgba(255, 255, 255, 0.45);
         cursor: default;
       }
@@ -72,10 +75,10 @@ export default class Button extends LitElement {
 
       .button-container.disabled-button:hover .button-mask {
         box-shadow: 0 0 0px 1px var(--color-button-disabled);
+        background: rgba(0, 0, 0, 0.05);
       }
 
       .button-container.active-button .button-mask {
-        box-shadow: inset 0 0 4px 2px rgb(0, 0, 0, 0.1);
       }
 
       .secondary-button.active-button {
@@ -95,6 +98,11 @@ export default class Button extends LitElement {
       .primary-button {
         background: var(--color-button-primary);
         color: var(--color-button-primary-text);
+      }
+
+      .light-button {
+        background: var(--color-button-light);
+        color: var(--color-button-light-text);
       }
 
       .attention-button {
@@ -141,6 +149,9 @@ export default class Button extends LitElement {
   @property({ type: Boolean })
   attention: boolean;
 
+  @property({ type: Number })
+  v = 1;
+
   @property({ type: Boolean })
   destructive: boolean;
 
@@ -160,7 +171,12 @@ export default class Button extends LitElement {
   href: string;
 
   private handleClick(evt: MouseEvent) {
-    if (this.href) {
+    if (this.disabled) {
+      evt.preventDefault();
+      evt.stopPropagation();
+    }
+
+    if (this.href && !this.disabled) {
       this.ownerDocument.location.href = this.href;
       evt.preventDefault();
       evt.stopPropagation();
@@ -169,34 +185,46 @@ export default class Button extends LitElement {
 
   private handleKeyUp(event: KeyboardEvent): void {
     this.active = false;
-    if (event.key === "Enter") {
+    if (event.key === 'Enter') {
       this.click();
     }
   }
 
-  private handleMouseDown(event: MouseEvent): void {
+  private handleMouseDown(): void {
     if (!this.disabled && !this.submitting) {
       this.active = true;
+      this.classList.add('active');
     }
   }
 
-  private handleMouseUp(event: MouseEvent): void {
+  private handleMouseUp(): void {
     this.active = false;
+    this.classList.remove('active');
   }
 
   public render(): TemplateResult {
+    const buttonName = this.submitting
+      ? html`<div class="submit-animation">
+          <temba-loading units="3" size="8" color="#eee"></temba-loading>
+        </div>`
+      : this.name;
+
     return html`
       <div
         class="button-container 
+          v-${this.v}
           ${getClasses({
-          "primary-button":
+          'primary-button':
             this.primary ||
-            (!this.primary && !this.secondary && !this.attention),
-          "secondary-button": this.secondary,
-          "disabled-button": this.disabled,
-          "active-button": this.active,
-          "attention-button": this.attention,
-          "destructive-button": this.destructive,
+            (!this.primary &&
+              !this.secondary &&
+              !this.attention &&
+              this.v == 1),
+          'secondary-button': this.secondary,
+          'disabled-button': this.disabled,
+          'active-button': this.active,
+          'attention-button': this.attention,
+          'destructive-button': this.destructive,
         })}"
         tabindex="0"
         @mousedown=${this.handleMouseDown}
@@ -206,17 +234,7 @@ export default class Button extends LitElement {
         @click=${this.handleClick}
       >
         <div class="button-mask">
-          <div class="button-name">
-            ${this.submitting
-              ? html`<div class="submit-animation">
-                  <temba-loading
-                    units="3"
-                    size="8"
-                    color="#eee"
-                  ></temba-loading>
-                </div>`
-              : this.name}
-          </div>
+          <div class="button-name">${buttonName}</div>
         </div>
       </div>
     `;

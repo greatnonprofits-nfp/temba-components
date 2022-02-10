@@ -1,52 +1,58 @@
-import Completion, { CompletionOption } from "./Completion";
-import { html, directive, Part } from "lit-html";
-import { unsafeHTML } from "lit-html/directives/unsafe-html";
-import TextInput from "../textinput/TextInput";
-import ExcellentParser, { Expression } from "./ExcellentParser";
-import { CompletionResult } from "../interfaces";
-import getCaretCoordinates from "textarea-caret";
-import { query } from "lit-element";
-import Store from "../store/Store";
+import { html, directive, Part, TemplateResult } from 'lit-html';
+import { unsafeHTML } from 'lit-html/directives/unsafe-html';
+import ExcellentParser, { Expression } from './ExcellentParser';
+import {
+  CompletionOption,
+  CompletionProperty,
+  CompletionResult,
+  CompletionSchema,
+  CompletionType,
+  KeyedAssets,
+} from '../interfaces';
+import { Store } from '../store/Store';
+import { Remarkable } from 'remarkable';
 
-const marked = require("marked");
+const md = new Remarkable();
 
-export interface CompletionProperty {
-  key: string;
-  help: string;
-  type: string;
-}
+const messageParser = new ExcellentParser('@', [
+  'contact',
+  'fields',
+  'globals',
+  'urns',
+]);
 
-export interface CompletionType {
-  name: string;
+const sessionParser = new ExcellentParser('@', [
+  'contact',
+  'fields',
+  'globals',
+  'urns',
+  'results',
+  'input',
+  'run',
+  'child',
+  'parent',
+  'node',
+  'webhook',
+  'ticket',
+  'trigger',
+  'resume',
+]);
 
-  key_source?: string;
-  property_template?: CompletionProperty;
-  properties?: CompletionProperty[];
-}
-
-export interface CompletionSchema {
-  types: CompletionType[];
-  root: CompletionProperty[];
-  root_no_session: CompletionProperty[];
-}
-
-export type KeyedAssets = { [assetType: string]: string[] };
-
-export const markedRender = directive((contents: string) => (part: Part) => {
-  part.setValue(unsafeHTML(marked(contents)));
+export const renderMarkdown = directive((contents: string) => (part: Part) => {
+  part.setValue(unsafeHTML(md.render(contents)));
 });
 
 export const renderCompletionOption = (
   option: CompletionOption,
   selected: boolean
-) => {
+): TemplateResult => {
   if (option.signature) {
-    const argStart = option.signature.indexOf("(");
+    const argStart = option.signature.indexOf('(');
     const name = option.signature.substr(0, argStart);
     const args = option.signature.substr(argStart);
 
     return html`
-      <div style="${selected ? "font-weight: 400" : ""}">
+      <div style="${selected ? 'font-weight: 400' : ''}">
         <div style="display:inline-block;margin-right: 5px">ƒ</div>
         <div style="display:inline-block">${name}</div>
         ${selected
@@ -56,7 +62,7 @@ export const renderCompletionOption = (
               >
                 ${args}
               </div>
-              <div class="detail">${markedRender(option.summary)}</div>
+              <div class="detail">${renderMarkdown(option.summary)}</div>
             `
           : null}
       </div>
@@ -65,7 +71,7 @@ export const renderCompletionOption = (
 
   return html`
     <div>
-      <div style="${selected ? "font-weight: 400" : ""}">${option.name}</div>
+      <div style="${selected ? 'font-weight: 400' : ''}">${option.name}</div>
       ${selected
         ? html` <div style="font-size: 85%">${option.summary}</div> `
         : null}
@@ -82,7 +88,7 @@ export const getFunctions = (
   }
   return functions.filter((option: CompletionOption) => {
     if (option.signature) {
-      return option.signature.indexOf((query || "").toLowerCase()) === 0;
+      return option.signature.indexOf((query || '').toLowerCase()) === 0;
     }
     return false;
   });
@@ -98,13 +104,17 @@ export const getCompletions = (
   keyedAssets: KeyedAssets = {},
   session: boolean
 ): CompletionOption[] => {
-  const parts = (dotQuery || "").split(".");
+  const parts = (dotQuery || '').split('.');
   let currentProps: CompletionProperty[] = session
     ? schema.root
     : schema.root_no_session;
 
-  let prefix = "";
-  let part = "";
+  if (!currentProps) {
+    return [];
+  }
+
+  let prefix = '';
+  let part = '';
   while (parts.length > 0) {
     part = parts.shift();
     if (part) {
@@ -119,14 +129,14 @@ export const getCompletions = (
         );
         if (nextType && nextType.properties) {
           currentProps = nextType.properties;
-          prefix += part + ".";
+          prefix += part + '.';
         } else if (nextType && nextType.property_template) {
-          prefix += part + ".";
+          prefix += part + '.';
           const template = nextType.property_template;
           if (keyedAssets[nextType.name]) {
             currentProps = keyedAssets[nextType.name].map((key: string) => ({
-              key: template.key.replace("{key}", key),
-              help: template.help.replace("{key}", key),
+              key: template.key.replace('{key}', key),
+              help: template.help.replace('{key}', key),
               type: template.type,
             }));
           } else {
@@ -151,7 +161,7 @@ export const getCompletions = (
 
   return currentProps.map((prop: CompletionProperty) => {
     const name =
-      prop.key === "__default__"
+      prop.key === '__default__'
         ? prefix.substr(0, prefix.length - 1)
         : prefix + prop.key;
     return { name, summary: prop.help };
@@ -159,7 +169,7 @@ export const getCompletions = (
 };
 
 export const getOffset = (el: HTMLElement) => {
-  var rect = el.getBoundingClientRect(),
+  const rect = el.getBoundingClientRect(),
     scrollLeft = window.pageXOffset || document.documentElement.scrollLeft,
     scrollTop = window.pageYOffset || document.documentElement.scrollTop;
   return { top: rect.top + scrollTop, left: rect.left + scrollLeft };
@@ -167,7 +177,7 @@ export const getOffset = (el: HTMLElement) => {
 
 export const getVerticalScroll = (ele: Node) => {
   let current = ele;
-  let verticalScroll = 0;
+  const verticalScroll = 0;
   while (current) {
     current = current.parentNode;
   }
@@ -176,12 +186,44 @@ export const getVerticalScroll = (ele: Node) => {
 
 export const getCompletionName = (option: CompletionOption): string => {
   return (
-    option.name || option.signature.substr(0, option.signature.indexOf("("))
+    option.name || option.signature.substr(0, option.signature.indexOf('('))
   );
 };
 
 export const getCompletionSignature = (option: CompletionOption): string => {
-  return option.signature.substr(option.signature.indexOf("("));
+  return option.signature.substr(option.signature.indexOf('('));
+};
+
+/**
+ * Determines the pixel position of position inside a textarea or input
+ * TODO: Explore somethign like contenteditable to avoid this madness
+ * see: https://jh3y.medium.com/how-to-where-s-the-caret-getting-the-xy-position-of-the-caret-a24ba372990a
+ */
+const getCursorXY = (input, selectionPoint) => {
+  const { offsetLeft: inputX, offsetTop: inputY } = input;
+  const div = document.createElement('div');
+  const copyStyle = getComputedStyle(input);
+  for (const prop of copyStyle) {
+    div.style[prop] = copyStyle[prop];
+  }
+  div.style.position = 'relative';
+  const swap = '.';
+  const inputValue =
+    input.tagName === 'INPUT' ? input.value.replace(/ /g, swap) : input.value;
+  const textContent = inputValue.substr(0, selectionPoint);
+  div.textContent = textContent;
+  if (input.tagName === 'TEXTAREA') div.style.height = 'auto';
+  if (input.tagName === 'INPUT') div.style.width = 'auto';
+  const span = document.createElement('span');
+  span.textContent = inputValue.substr(selectionPoint) || '.';
+  div.appendChild(span);
+  document.body.appendChild(div);
+  const { offsetLeft: spanX, offsetTop: spanY } = span;
+  document.body.removeChild(div);
+  return {
+    left: inputX + spanX,
+    top: inputY + spanY,
+  };
 };
 
 export const updateInputElementWithCompletion = (
@@ -189,11 +231,11 @@ export const updateInputElementWithCompletion = (
   ele: HTMLInputElement,
   option: CompletionOption
 ) => {
-  let insertText = "";
+  let insertText = '';
 
   if (option.signature) {
     // they selected a function
-    insertText = option.signature.substr(0, option.signature.indexOf("(") + 1);
+    insertText = option.signature.substr(0, option.signature.indexOf('(') + 1);
   } else {
     insertText = option.name;
   }
@@ -201,7 +243,7 @@ export const updateInputElementWithCompletion = (
   const queryLength = currentQuery.length;
 
   if (ele) {
-    let value = ele.value;
+    const value = ele.value;
     const insertionPoint = ele.selectionStart - queryLength;
 
     // strip out our query
@@ -215,12 +257,12 @@ export const updateInputElementWithCompletion = (
     ele.setSelectionRange(caret, caret);
 
     // now scroll our text box if necessary
-    const position = getCaretCoordinates(ele, caret);
+    const position = getCursorXY(ele, caret);
     if (position.left > ele.width) {
       ele.scrollLeft = position.left;
     }
 
-    ele.dispatchEvent(new Event("input"));
+    ele.dispatchEvent(new Event('input'));
   }
 };
 
@@ -241,11 +283,10 @@ export const executeCompletionQuery = (
     return result;
   }
 
-  let currentFunction: CompletionOption = null;
   const cursor = ele.selectionStart;
   const input = ele.value.substring(0, cursor);
 
-  const parser = session ? Completion.sessionParser : Completion.parser;
+  const parser = session ? sessionParser : messageParser;
   const expressions = parser.findExpressions(input);
   const currentExpression = expressions.find(
     (expr: Expression) =>
@@ -254,13 +295,13 @@ export const executeCompletionQuery = (
   );
 
   if (currentExpression) {
-    const includeFunctions = currentExpression.text.indexOf("(") > -1;
+    const includeFunctions = currentExpression.text.indexOf('(') > -1;
     if (includeFunctions) {
       const functionQuery = parser.functionContext(currentExpression.text);
       if (functionQuery) {
         const fns = getFunctions(store.getFunctions(), functionQuery);
         if (fns.length > 0) {
-          currentFunction = fns[0];
+          result.currentFunction = fns[0];
         }
       }
     }
@@ -268,25 +309,26 @@ export const executeCompletionQuery = (
     for (let i = currentExpression.text.length; i >= 0; i--) {
       const curr = currentExpression.text[i];
       if (
-        curr === "@" ||
-        curr === "(" ||
-        curr === " " ||
-        curr === "," ||
-        curr === ")" ||
+        curr === '@' ||
+        curr === '(' ||
+        curr === ' ' ||
+        curr === ',' ||
+        curr === ')' ||
         i === 0
       ) {
         // don't include non-expression chars
         if (
-          curr === "(" ||
-          curr === " " ||
-          curr === "," ||
-          curr === ")" ||
-          curr === "@"
+          curr === '(' ||
+          curr === ' ' ||
+          curr === ',' ||
+          curr === ')' ||
+          curr === '@'
         ) {
           i++;
         }
 
-        var caret = getCaretCoordinates(ele, currentExpression.start + i);
+        const caret = getCursorXY(ele, currentExpression.start + i);
+
         result.anchorPosition = {
           left: caret.left - 2 - ele.scrollLeft,
           top: caret.top - ele.scrollTop,
@@ -296,6 +338,7 @@ export const executeCompletionQuery = (
           i,
           currentExpression.text.length - i
         );
+
         result.options = [
           ...getCompletions(
             store.getCompletionSchema(),
@@ -313,7 +356,7 @@ export const executeCompletionQuery = (
     }
   } else {
     result.options = [];
-    result.query = "";
+    result.query = '';
   }
   return result;
 };
