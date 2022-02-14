@@ -4,12 +4,12 @@ import {
   html,
   css,
   property,
-} from "lit-element";
+} from 'lit-element';
 
-import FormElement from "../FormElement";
-import "lit-flatpickr";
+import { FormElement } from '../FormElement';
+import 'lit-flatpickr';
 
-@customElement("temba-datepicker")
+@customElement('temba-datepicker')
 export default class DatePicker extends FormElement {
   static get styles() {
     return css`
@@ -48,13 +48,13 @@ export default class DatePicker extends FormElement {
   }
 
   @property({ type: String })
-  placeholder: string = "";
+  placeholder = '';
 
   @property({ type: String })
-  value: string = "";
+  value = '';
 
   @property({ type: String })
-  name: string = "";
+  name = '';
 
   @property({ type: Object })
   inputElement: HTMLInputElement;
@@ -67,7 +67,7 @@ export default class DatePicker extends FormElement {
   public render(): TemplateResult {
     return html`
       <lit-flatpickr
-      class="textinput"
+        class="textinput"
         id="my-date-picker"
         altInput
         altFormat="F j, Y"

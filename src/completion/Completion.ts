@@ -1,43 +1,21 @@
-import {
-  customElement,
-  TemplateResult,
-  html,
-  css,
-  property,
-} from "lit-element";
-import { ifDefined } from "lit-html/directives/if-defined";
-import ExcellentParser from "./ExcellentParser";
-import TextInput from "../textinput/TextInput";
+import { TemplateResult, css, property, html } from 'lit-element';
+import { ifDefined } from 'lit-html/directives/if-defined';
+import { TextInput } from '../textinput/TextInput';
 import {
   renderCompletionOption,
   updateInputElementWithCompletion,
   executeCompletionQuery,
-} from "./helpers";
-import { styleMap } from "lit-html/directives/style-map.js";
-import FormElement from "../FormElement";
-import { Position } from "../interfaces";
-import Store from "../store/Store";
+} from './helpers';
 
-export interface FunctionExample {
-  template: string;
-  output: string;
-}
-
-export interface CompletionOption {
-  name?: string;
-  summary: string;
-
-  // functions
-  signature?: string;
-  detail?: string;
-  examples?: FunctionExample[];
-}
+import { FormElement } from '../FormElement';
+import { CompletionOption, Position } from '../interfaces';
+import { Store } from '../store/Store';
+import { styleMap } from 'lit-html/directives/style-map';
 
 /**
  * Completion is a text input that handles excellent completion options in a popup
  */
-@customElement("temba-completion")
-export default class Completion extends FormElement {
+export class Completion extends FormElement {
   static get styles() {
     return css`
       :host {
@@ -97,29 +75,11 @@ export default class Completion extends FormElement {
     `;
   }
 
-  static parser = new ExcellentParser("@", [
-    "contact",
-    "fields",
-    "globals",
-    "urns",
-  ]);
-
-  static sessionParser = new ExcellentParser("@", [
-    "contact",
-    "fields",
-    "globals",
-    "urns",
-    "results",
-    "input",
-    "run",
-    "child",
-    "parent",
-    "webhook",
-    "trigger",
-  ]);
-
   @property({ type: Boolean })
   session: boolean;
+
+  @property({ type: Boolean })
+  submitOnEnter = false;
 
   @property({ type: Object })
   anchorPosition: Position = { left: 0, top: 0 };
@@ -128,7 +88,7 @@ export default class Completion extends FormElement {
   currentFunction: CompletionOption;
 
   @property({ type: String })
-  placeholder: string = "";
+  placeholder = '';
 
   @property({ attribute: false })
   textInputElement: TextInput;
@@ -140,10 +100,10 @@ export default class Completion extends FormElement {
   options: any[] = [];
 
   @property({ type: String })
-  name: string = "";
+  name = '';
 
   @property({ type: String })
-  value: string = "";
+  value = '';
 
   @property({ type: Boolean })
   textarea: boolean;
@@ -157,39 +117,41 @@ export default class Completion extends FormElement {
   private hiddenElement: HTMLInputElement;
   private query: string;
 
-  public firstUpdated(changedProperties: Map<string, any>) {
+  public firstUpdated() {
     this.textInputElement = this.shadowRoot.querySelector(
-      "temba-textinput"
+      'temba-textinput'
     ) as TextInput;
-    this.anchorElement = this.shadowRoot.querySelector("#anchor");
+    this.anchorElement = this.shadowRoot.querySelector('#anchor');
 
     // create our hidden container so it gets included in our host element's form
-    this.hiddenElement = document.createElement("input");
-    this.hiddenElement.setAttribute("type", "hidden");
-    this.hiddenElement.setAttribute("name", this.getAttribute("name"));
-    this.hiddenElement.setAttribute("value", this.getAttribute("value") || "");
+    this.hiddenElement = document.createElement('input');
+    this.hiddenElement.setAttribute('type', 'hidden');
+    this.hiddenElement.setAttribute('name', this.getAttribute('name'));
+    this.hiddenElement.setAttribute('value', this.getAttribute('value') || '');
     this.appendChild(this.hiddenElement);
   }
 
   private handleKeyUp(evt: KeyboardEvent) {
     // if we have options, ignore keys that are meant for them
-    if (this.options.length > 0) {
-      if (evt.key === "ArrowUp" || evt.key === "ArrowDown") {
+    if (this.options && this.options.length > 0) {
+      if (evt.key === 'ArrowUp' || evt.key === 'ArrowDown') {
         return;
       }
 
       if (evt.ctrlKey) {
-        if (evt.key === "n" || evt.key === "p") {
+        if (evt.key === 'n' || evt.key === 'p') {
           return;
         }
       }
 
       if (
-        evt.key === "Enter" ||
-        evt.key === "Escape" ||
-        evt.key === "Tab" ||
-        evt.key.startsWith("Control")
+        evt.key === 'Enter' ||
+        evt.key === 'Escape' ||
+        evt.key === 'Tab' ||
+        evt.key.startsWith('Control')
       ) {
+        evt.stopPropagation();
+        evt.preventDefault();
         return;
       }
 
@@ -197,13 +159,18 @@ export default class Completion extends FormElement {
     }
   }
 
+  public hasVisibleOptions() {
+    return this.options.length > 0;
+  }
+
   private executeQuery(ele: TextInput) {
-    const store: Store = document.querySelector("temba-store");
+    const store: Store = document.querySelector('temba-store');
     const result = executeCompletionQuery(
       ele.inputElement,
       store,
       this.session
     );
+
     this.query = result.query;
     this.options = result.options;
     this.anchorPosition = result.anchorPosition;
@@ -217,8 +184,8 @@ export default class Completion extends FormElement {
     super.updated(changedProperties);
 
     // if our cursor changed, lets make sure our scrollbox is showing it
-    if (changedProperties.has("value")) {
-      this.hiddenElement.setAttribute("value", this.value);
+    if (changedProperties.has('value')) {
+      this.hiddenElement.setAttribute('value', this.value);
     }
   }
 
@@ -226,14 +193,14 @@ export default class Completion extends FormElement {
     const ele = evt.currentTarget as TextInput;
     this.executeQuery(ele);
     this.value = ele.inputElement.value;
-    this.fireEvent("change");
+    this.fireEvent('change');
   }
 
-  private handleOptionCanceled(evt: CustomEvent) {
+  private handleOptionCanceled() {
     // delay in case we are actively selecting
     window.setTimeout(() => {
       this.options = [];
-      this.query = "";
+      this.query = '';
     }, 100);
   }
 
@@ -246,11 +213,19 @@ export default class Completion extends FormElement {
       this.textInputElement.inputElement,
       option
     );
-    this.query = "";
+    this.query = '';
     this.options = [];
 
     if (tabbed) {
       this.executeQuery(this.textInputElement);
+    }
+  }
+
+  public click() {
+    super.click();
+    const input = this.shadowRoot.querySelector('temba-textinput') as TextInput;
+    if (input) {
+      input.click();
     }
   }
 
@@ -283,16 +258,16 @@ export default class Completion extends FormElement {
             @blur=${this.handleOptionCanceled}
             .value=${this.value}
             ?textarea=${this.textarea}
-            ?ignoreSubmit=${true}
+            ?submitOnEnter=${this.submitOnEnter}
           >
           </temba-textinput>
           <temba-options
             @temba-selection=${this.handleOptionSelection}
             @temba-canceled=${this.handleOptionCanceled}
+            .renderOption=${renderCompletionOption}
             .anchorTo=${this.anchorElement}
             .options=${this.options}
-            .renderOption=${renderCompletionOption}
-            ?visible=${this.options.length > 0}
+            ?visible=${this.options && this.options.length > 0}
           >
             ${this.currentFunction
               ? html`

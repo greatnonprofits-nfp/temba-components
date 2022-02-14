@@ -1,14 +1,6 @@
-import {
-  css,
-  customElement,
-  html,
-  LitElement,
-  property,
-  TemplateResult,
-} from "lit-element";
+import { css, html, LitElement, property, TemplateResult } from 'lit-element';
 
-@customElement("temba-alert")
-export default class Alert extends LitElement {
+export class Alert extends LitElement {
   static get styles() {
     return css`
       :host {
@@ -38,7 +30,7 @@ export default class Alert extends LitElement {
   }
 
   @property({ type: String })
-  level: string = "info";
+  level = 'info';
 
   public render(): TemplateResult {
     return html`
