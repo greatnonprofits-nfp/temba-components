@@ -91,7 +91,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "yarn build && wtr --node-resolve"
+      "pre-commit": "yarn build && wtr --node-resolve && lint-staged"
     }
   },
   "lint-staged": {
