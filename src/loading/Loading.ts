@@ -1,17 +1,8 @@
-import {
-  customElement,
-  property,
-  html,
-  TemplateResult,
-  css,
-  LitElement,
-} from "lit-element";
-import RapidElement from "../RapidElement";
-import { styleMap } from "lit-html/directives/style-map";
-import { range } from "../utils";
+import { property, html, TemplateResult, css, LitElement } from 'lit-element';
+import { styleMap } from 'lit-html/directives/style-map';
+import { range } from '../utils';
 
-@customElement("temba-loading")
-export default class Loading extends LitElement {
+export class Loading extends LitElement {
   static get styles() {
     return css`
       .loading-unit {
@@ -41,13 +32,13 @@ export default class Loading extends LitElement {
   }
 
   @property({ type: String })
-  color: string = "var(--color-primary-dark)";
+  color = 'var(--color-primary-dark)';
 
   @property({ type: Number })
-  size: number = 5;
+  size = 5;
 
   @property({ type: Number })
-  units: number = 5;
+  units = 5;
 
   @property({ type: Boolean })
   square?: boolean;
@@ -59,10 +50,10 @@ export default class Loading extends LitElement {
       <div class="loading-container">
         ${range(0, this.units).map((num: number) => {
           const ballStyle = {
-            "border-radius": this.square ? "0" : "50%",
-            width: this.size + "px",
-            height: this.size + "px",
-            margin: margin + "px",
+            'border-radius': this.square ? '0' : '50%',
+            width: this.size + 'px',
+            height: this.size + 'px',
+            margin: margin + 'px',
             animationDelay: `-${1 - num * (1 / this.units)}s`,
             background: this.color,
           };

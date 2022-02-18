@@ -1,39 +1,29 @@
-import {
-  customElement,
-  TemplateResult,
-  html,
-  css,
-  property,
-  LitElement,
-} from "lit-element";
+import { TemplateResult, html, css, property, LitElement } from 'lit-element';
 
 /**
  * A small wrapper to display labels and help text in a smartmin style.
  * This exists so we can display things consistently before restyling.
  */
-@customElement("temba-field")
-export default class FormField extends LitElement {
+export class FormField extends LitElement {
   static get styles() {
     return css`
       :host {
         font-family: var(--font-family);
-        --help-text-margin-left: 4px;
-        --help-text-margin-top: 0px;
       }
 
       label {
         margin-bottom: 5px;
         margin-left: 4px;
-        display: block;   
+        display: block;
         font-weight: 400;
-        font-size: 13px;
+        font-size: var(--label-size);
         letter-spacing: 0.05em;
         line-height: normal;
         color: #777;
       }
 
       .help-text {
-        font-size: 11px;
+        font-size: var(--help-text-size);
         line-height: normal;
         color: var(--color-text-help);
         margin-left: var(--help-text-margin-left);
@@ -55,45 +45,47 @@ export default class FormField extends LitElement {
       }
 
       .alert-error {
-        background: rgba(255, 181, 181, .17);
+        background: rgba(255, 181, 181, 0.17);
         border: none;
         border-left: 0px solid var(--color-error);
         color: var(--color-error);
         padding: 10px;
         margin: 15px 0px;
         border-radius: var(--curvature);
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+          0 1px 2px 0 rgba(0, 0, 0, 0.06);
       }
 
       .disabled {
-        opacity: 0.5;
+        opacity: 0.6 !important;
+        pointer-events: none !important;
       }
-    }`;
+    `;
   }
 
-  @property({ type: Boolean, attribute: "hide_label" })
-  hideLabel: boolean;
+  @property({ type: Boolean, attribute: 'hide_label' })
+  hideLabel = false;
 
-  @property({ type: Boolean, attribute: "widget_only" })
-  widgetOnly: boolean;
+  @property({ type: Boolean, attribute: 'widget_only' })
+  widgetOnly = false;
 
   @property({ type: Array, attribute: false })
   errors: string[] = [];
 
   @property({ type: Boolean })
-  hideErrors: boolean = false;
+  hideErrors = false;
 
-  @property({ type: String, attribute: "help_text" })
-  helpText: string;
+  @property({ type: String, attribute: 'help_text' })
+  helpText = '';
 
-  @property({ type: Boolean, attribute: "help_always" })
-  helpAlways: boolean = true;
-
-  @property({ type: String })
-  label: string;
+  @property({ type: Boolean, attribute: 'help_always' })
+  helpAlways = true;
 
   @property({ type: String })
-  name: string;
+  label = '';
+
+  @property({ type: String })
+  name = '';
 
   @property({ type: Boolean })
   disabled = false;
@@ -107,14 +99,14 @@ export default class FormField extends LitElement {
 
     if (this.widgetOnly) {
       return html`
-        <slot></slot>
+        <div class="${this.disabled ? 'disabled' : ''}"><slot></slot></div>
         ${errors}
       `;
     }
 
     return html`
-      <div class="field ${this.disabled ? "disabled" : ""}">
-        ${this.name && !this.hideLabel
+      <div class="field ${this.disabled ? 'disabled' : ''}">
+        ${!!this.name && !this.hideLabel
           ? html`
               <label class="control-label" for="${this.name}"
                 >${this.label}</label
@@ -124,9 +116,9 @@ export default class FormField extends LitElement {
         <div class="widget">
           <slot></slot>
         </div>
-        ${this.helpText && this.helpText !== "None"
+        ${this.helpText && this.helpText !== 'None'
           ? html`
-              <div class="help-text ${this.helpAlways ? "help-always" : null}">
+              <div class="help-text ${this.helpAlways ? 'help-always' : null}">
                 ${this.helpText}
               </div>
             `

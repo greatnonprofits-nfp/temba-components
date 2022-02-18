@@ -1,15 +1,7 @@
-import {
-  LitElement,
-  TemplateResult,
-  html,
-  css,
-  customElement,
-  property,
-} from "lit-element";
-import { getClasses } from "../utils";
+import { LitElement, TemplateResult, html, css, property } from 'lit-element';
+import { getClasses } from '../utils';
 
-@customElement("temba-button")
-export default class Button extends LitElement {
+export class Button extends LitElement {
   static get styles() {
     return css`
       :host {
@@ -61,7 +53,7 @@ export default class Button extends LitElement {
       }
 
       .button-container.disabled-button {
-        background: rgb(0, 0, 0, 0.05);
+        background: rgba(0, 0, 0, 0.05);
         color: rgba(255, 255, 255, 0.45);
         cursor: default;
       }
@@ -72,6 +64,7 @@ export default class Button extends LitElement {
 
       .button-container.disabled-button:hover .button-mask {
         box-shadow: 0 0 0px 1px var(--color-button-disabled);
+        background: rgba(0, 0, 0, 0.05);
       }
 
       .button-container.active-button .button-mask {
@@ -160,7 +153,12 @@ export default class Button extends LitElement {
   href: string;
 
   private handleClick(evt: MouseEvent) {
-    if (this.href) {
+    if (this.disabled) {
+      evt.preventDefault();
+      evt.stopPropagation();
+    }
+
+    if (this.href && !this.disabled) {
       this.ownerDocument.location.href = this.href;
       evt.preventDefault();
       evt.stopPropagation();
@@ -169,34 +167,40 @@ export default class Button extends LitElement {
 
   private handleKeyUp(event: KeyboardEvent): void {
     this.active = false;
-    if (event.key === "Enter") {
+    if (event.key === 'Enter') {
       this.click();
     }
   }
 
-  private handleMouseDown(event: MouseEvent): void {
+  private handleMouseDown(): void {
     if (!this.disabled && !this.submitting) {
       this.active = true;
     }
   }
 
-  private handleMouseUp(event: MouseEvent): void {
+  private handleMouseUp(): void {
     this.active = false;
   }
 
   public render(): TemplateResult {
+    const buttonName = this.submitting
+      ? html`<div class="submit-animation">
+          <temba-loading units="3" size="8" color="#eee"></temba-loading>
+        </div>`
+      : this.name;
+
     return html`
       <div
         class="button-container 
           ${getClasses({
-          "primary-button":
+          'primary-button':
             this.primary ||
             (!this.primary && !this.secondary && !this.attention),
-          "secondary-button": this.secondary,
-          "disabled-button": this.disabled,
-          "active-button": this.active,
-          "attention-button": this.attention,
-          "destructive-button": this.destructive,
+          'secondary-button': this.secondary,
+          'disabled-button': this.disabled,
+          'active-button': this.active,
+          'attention-button': this.attention,
+          'destructive-button': this.destructive,
         })}"
         tabindex="0"
         @mousedown=${this.handleMouseDown}
@@ -206,17 +210,7 @@ export default class Button extends LitElement {
         @click=${this.handleClick}
       >
         <div class="button-mask">
-          <div class="button-name">
-            ${this.submitting
-              ? html`<div class="submit-animation">
-                  <temba-loading
-                    units="3"
-                    size="8"
-                    color="#eee"
-                  ></temba-loading>
-                </div>`
-              : this.name}
-          </div>
+          <div class="button-name">${buttonName}</div>
         </div>
       </div>
     `;

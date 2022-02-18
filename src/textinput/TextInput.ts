@@ -1,20 +1,13 @@
-import {
-  customElement,
-  TemplateResult,
-  html,
-  css,
-  property,
-} from "lit-element";
-import { ifDefined } from "lit-html/directives/if-defined";
-import { styleMap } from "lit-html/directives/style-map.js";
-import FormElement from "../FormElement";
-import "lit-flatpickr";
-import Modax from "../dialog/Modax";
-import { sanitize } from "./helpers";
-import CharCount from "../charcount/CharCount";
+import { TemplateResult, html, css, property } from 'lit-element';
+import { ifDefined } from 'lit-html/directives/if-defined';
+import { styleMap } from 'lit-html/directives/style-map';
+import { FormElement } from '../FormElement';
+import { Modax } from '../dialog/Modax';
+import { sanitize } from './helpers';
+import { CharCount } from '../charcount/CharCount';
+import 'lit-flatpickr';
 
-@customElement("temba-textinput")
-export default class TextInput extends FormElement {
+export class TextInput extends FormElement {
   static get styles() {
     return css`
       .input-container {
@@ -33,7 +26,7 @@ export default class TextInput extends FormElement {
       }
 
       .clear-icon {
-        color: var(--color-text-dark-secondary);
+        --icon-color: var(--color-text-dark-secondary);
         cursor: pointer;
         margin: auto;
         padding-right: 10px;
@@ -41,7 +34,7 @@ export default class TextInput extends FormElement {
       }
 
       .clear-icon:hover {
-        color: var(--color-text-dark);
+        --icon-color: var(--color-text-dark);
       }
 
       .hidden {
@@ -116,13 +109,13 @@ export default class TextInput extends FormElement {
   datetimepicker: boolean;
 
   @property({ type: String })
-  placeholder: string = "";
+  placeholder = '';
 
   @property({ type: String })
-  value: string = "";
+  value = '';
 
   @property({ type: String })
-  name: string = "";
+  name = '';
 
   @property({ type: Boolean })
   password: boolean;
@@ -147,25 +140,37 @@ export default class TextInput extends FormElement {
 
   // if we are still loading
   @property({ type: Boolean })
-  loading: boolean = true;
+  loading = true;
 
   @property({ type: Boolean })
-  ignoreSubmit: boolean = false;
+  submitOnEnter = true;
 
   @property()
   onBlur: any;
+
+  @property({ type: Boolean })
+  disabled = false;
 
   counterElement: CharCount = null;
   cursorStart = -1;
   cursorEnd = -1;
 
+  public constructor() {
+    super();
+  }
+
   public firstUpdated(changes: Map<string, any>) {
     super.firstUpdated(changes);
 
-    this.inputElement = this.shadowRoot.querySelector(".textinput");
-    this.dateElement = this.shadowRoot.querySelector(".datepicker");
+    this.dateElement = this.shadowRoot.querySelector('.datepicker');
+    if (this.dateElement) {
+      this.onDateUpdated = this.onDateUpdated.bind(this);
+      this.onDateReady = this.onDateReady.bind(this);
+    }
 
-    if (changes.has("counter")) {
+    this.inputElement = this.shadowRoot.querySelector('.textinput');
+
+    if (changes.has('counter')) {
       let root = this.getParentModax() as any;
       if (root) {
         root = root.shadowRoot;
@@ -176,39 +181,13 @@ export default class TextInput extends FormElement {
       this.counterElement = root.querySelector(this.counter);
       this.counterElement.text = this.value;
     }
-
-    if (this.dateElement) {
-      const picker = this.dateElement;
-      window.setTimeout(() => {
-        this.dateElement.set(
-          "onValueUpdate",
-          (dates: Date[], formattedDate: string) => {
-            this.inputElement.value = picker.formatDate(
-              dates[0],
-              picker.altFormat
-            );
-            this.setValue(formattedDate);
-            this.inputElement.blur();
-          }
-        );
-
-        if (this.value) {
-          this.inputElement.value = picker.formatDate(
-            picker.parseDate(this.value),
-            picker.altFormat
-          );
-          this.dateElement.setDate(this.value);
-        }
-        this.loading = false;
-      }, 300);
-    }
   }
 
   public updated(changes: Map<string, any>) {
     super.updated(changes);
-    if (changes.has("value")) {
+    if (changes.has('value')) {
       this.setValues([this.value]);
-      this.fireEvent("change");
+      this.fireEvent('change');
 
       if (this.cursorStart > -1 && this.cursorEnd > -1) {
         this.inputElement.setSelectionRange(this.cursorStart, this.cursorEnd);
@@ -218,10 +197,36 @@ export default class TextInput extends FormElement {
     }
   }
 
+  private onDateUpdated(dates: Date[], formattedDate: string) {
+    if (dates.length > 0) {
+      this.inputElement.value = this.dateElement.formatDate(
+        dates[0],
+        this.dateElement.altFormat
+      );
+
+      this.setValue(formattedDate);
+      this.inputElement.blur();
+    }
+  }
+
+  private onDateReady() {
+    window.setTimeout(() => {
+      if (this.value) {
+        this.inputElement.value = this.dateElement.formatDate(
+          this.dateElement.parseDate(this.value),
+          this.dateElement.altFormat
+        );
+        this.dateElement.setDate(this.value);
+      }
+
+      this.loading = false;
+    }, 0);
+  }
+
   private handleClear(event: any): void {
     event.stopPropagation();
     event.preventDefault();
-    this.value = "";
+    this.setValue(null);
   }
 
   private updateValue(value: string): void {
@@ -251,29 +256,41 @@ export default class TextInput extends FormElement {
   }
 
   private handleChange(update: any): void {
+    if (this.disabled) {
+      return;
+    }
     this.updateValue(update.target.value);
-    this.fireEvent("change");
+    this.fireEvent('change');
   }
 
   private handleDateClick(): void {
-    (this.shadowRoot.querySelector(".datepicker") as any).open();
+    if (this.disabled) {
+      return;
+    }
+
+    this.dateElement.open();
+    this.dateElement.focus();
   }
 
   private handleContainerClick(): void {
-    const input: any = this.shadowRoot.querySelector(".textinput");
-    if (input) {
-      input.focus();
+    if (this.disabled) {
+      return;
+    }
+
+    if (this.inputElement) {
+      this.inputElement.focus();
     } else {
-      const datepicker: any = this.shadowRoot.querySelector(".datepicker");
-      datepicker.open();
-      datepicker.focus();
+      this.handleDateClick();
     }
   }
 
   private handleInput(update: any): void {
+    if (this.disabled) {
+      return;
+    }
     this.updateValue(update.target.value);
     this.setValues([this.value]);
-    this.fireEvent("input");
+    this.fireEvent('input');
   }
 
   /** we just return the value since it should be a string */
@@ -282,7 +299,7 @@ export default class TextInput extends FormElement {
   }
 
   public getParentModax(): Modax {
-    var parent = this as HTMLElement;
+    let parent = this as HTMLElement;
 
     while (parent) {
       if (parent.parentElement) {
@@ -295,14 +312,14 @@ export default class TextInput extends FormElement {
         return null;
       }
 
-      if (parent.tagName == "TEMBA-MODAX") {
+      if (parent.tagName == 'TEMBA-MODAX') {
         return parent as Modax;
       }
     }
   }
 
   public getParentForm(): HTMLFormElement {
-    var parent = this as HTMLElement;
+    let parent = this as HTMLElement;
 
     while (parent) {
       if (parent.parentElement) {
@@ -315,24 +332,28 @@ export default class TextInput extends FormElement {
         return null;
       }
 
-      if (parent.tagName === "FORM") {
+      if (parent.tagName === 'FORM') {
         return parent as HTMLFormElement;
       }
     }
   }
 
+  public click(): void {
+    super.click();
+    this.handleContainerClick();
+  }
+
   // TODO make this a formelement and have contactsearch set the root
   public render(): TemplateResult {
     const containerStyle = {
-      height: `${this.textarea ? "100%" : "auto"}`,
+      height: `${this.textarea ? '100%' : 'auto'}`,
     };
 
     const clear =
       this.clearable && this.inputElement && this.inputElement.value
-        ? html`<fa-icon
-            class="fa times clear-icon"
-            size="14px"
-            path-prefix="/sitestatic"
+        ? html`<temba-icon
+            name="x"
+            class="clear-icon"
             @click=${this.handleClear}
           />`
         : null;
@@ -341,18 +362,28 @@ export default class TextInput extends FormElement {
       <input
         class="textinput"
         name=${this.name}
-        type="${this.password ? "password" : "text"}"
+        type="${this.password ? 'password' : 'text'}"
         maxlength="${ifDefined(this.maxlength)}"
         @change=${this.handleChange}
         @input=${this.handleInput}
         @blur=${this.blur}
         @keydown=${(e: KeyboardEvent) => {
-          if (e.keyCode == 13) {
-            if (!this.ignoreSubmit) {
-              this.value = this.values[0];
-              this.fireEvent("change");
+          if (e.key === 'Enter') {
+            // eslint-disable-next-line @typescript-eslint/no-this-alias
+            const input = this;
 
-              const input = this;
+            if (this.submitOnEnter) {
+              const parentModax = input.getParentModax();
+              const parentForm = !parentModax ? input.getParentForm() : null;
+
+              this.value = this.values[0];
+              this.fireEvent('change');
+
+              // if we don't have something to submit then bail
+              if (!parentModax && !parentForm) {
+                return false;
+              }
+
               input.blur();
 
               // look for a form to submit
@@ -360,13 +391,15 @@ export default class TextInput extends FormElement {
                 // first, look for a modax that contains us
                 const modax = input.getParentModax();
                 if (modax) {
+                  input.blur();
+
                   modax.submit();
                 } else {
                   // otherwise, just look for a vanilla submit button
                   const form = input.getParentForm();
 
                   if (form) {
-                    var submitButton = form.querySelector(
+                    const submitButton = form.querySelector(
                       "input[type='submit']"
                     ) as HTMLInputElement;
                     if (submitButton) {
@@ -384,6 +417,7 @@ export default class TextInput extends FormElement {
         }}
         placeholder=${this.placeholder}
         .value="${this.value}"
+        .disabled=${this.disabled}
       />
     `;
     if (this.textarea) {
@@ -396,6 +430,7 @@ export default class TextInput extends FormElement {
           @input=${this.handleInput}
           @blur=${this.blur}
           .value=${this.value}
+          .disabled=${this.disabled}
         ></textarea>
       `;
     }
@@ -403,7 +438,7 @@ export default class TextInput extends FormElement {
     if (this.datepicker || this.datetimepicker) {
       input = html`
         <input
-          class="textinput withdate ${this.loading ? "loading" : ""}"
+          class="textinput withdate ${this.loading ? 'loading' : ''}"
           name=${this.name}
           type="text"
           @click=${this.handleDateClick}
@@ -412,14 +447,17 @@ export default class TextInput extends FormElement {
             e.preventDefault();
           }}
           readonly="true"
-          placeholder=${this.placeholder}
+          placeholder="${this.placeholder}"
           .value="${this.value}"
+          ?disabled=${this.disabled}
         />
         <lit-flatpickr
           class="datepicker hidden"
           altInput
-          altFormat="${this.datepicker ? "F j, Y" : "F j, Y h:i K"}"
-          dateFormat="${this.datepicker ? "Y-m-d" : "Y-m-d H:i"}"
+          altFormat="${this.datepicker ? 'F j, Y' : 'F j, Y h:i K'}"
+          dateFormat="${this.datepicker ? 'Y-m-d' : 'Y-m-d H:i'}"
+          .onValueUpdate=${this.onDateUpdated}
+          .onReady=${this.onDateReady}
           ?enableTime=${this.datetimepicker}
         ></lit-flatpickr>
       `;
@@ -428,11 +466,12 @@ export default class TextInput extends FormElement {
     return html`
       <temba-field
         name=${this.name}
-        .label=${this.label}
-        .helpText=${this.helpText}
+        .label="${this.label}"
+        .helpText="${this.helpText}"
         .errors=${this.errors}
         .widgetOnly=${this.widgetOnly}
         .hideLabel=${this.hideLabel}
+        .disabled=${this.disabled}
       >
         <div
           class="input-container"

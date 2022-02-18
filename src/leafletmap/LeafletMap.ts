@@ -1,20 +1,26 @@
-import { AxiosResponse } from 'axios';
+/* eslint-disable @typescript-eslint/camelcase */
 import { Feature, Geometry } from 'geojson';
-import { GeoJSON, geoJSON, LeafletEvent, LeafletMouseEvent, Map as RenderedMap, map, Path } from 'leaflet';
-import { css, customElement, html, LitElement, property } from 'lit-element';
+import {
+  GeoJSON,
+  geoJSON,
+  LeafletEvent,
+  LeafletMouseEvent,
+  Map as RenderedMap,
+  map as createMap,
+  Path,
+} from 'leaflet';
+import { css, html, LitElement, property } from 'lit-element';
 
 import { FeatureProperties } from '../interfaces';
-import { getUrl } from '../utils';
+import { getUrl, WebResponse } from '../utils';
 import { highlightedFeature, normalFeature, visibleStyle } from './helpers';
 
-@customElement("leaflet-map")
-export default class LeafletMap extends LitElement {
-
+export class LeafletMap extends LitElement {
   static get styles() {
     return css`
       :host {
         display: block;
-        padding: 0px;        
+        padding: 0px;
       }
 
       #alias-map {
@@ -42,7 +48,7 @@ export default class LeafletMap extends LitElement {
       }
 
       .path > .step.linked {
-        text-decoration: underline; 
+        text-decoration: underline;
         color: var(--color-link-primary);
         cursor: pointer;
       }
@@ -53,10 +59,10 @@ export default class LeafletMap extends LitElement {
   feature: FeatureProperties;
 
   @property()
-  osmId: string = "";
+  osmId = '';
 
   @property()
-  endpoint = "";
+  endpoint = '';
 
   @property()
   onFeatureClicked: (feature: FeatureProperties) => void;
@@ -82,17 +88,16 @@ export default class LeafletMap extends LitElement {
     return this.endpoint + (!this.endpoint.endsWith('/') ? '/' : '');
   }
 
-  paths: { [osmId: string]: Path } = {}
+  paths: { [osmId: string]: Path } = {};
   lastHovered: Path = null;
 
   private refreshMap(): void {
     const onEachFeature = (feature: Feature<Geometry, any>, path: Path) => {
-
       this.paths[feature.properties.osm_id] = path;
 
       path.on({
         click: (event: LeafletMouseEvent) => {
-          const feature: FeatureProperties = event.target.feature.properties
+          const feature: FeatureProperties = event.target.feature.properties;
           if (feature.osm_id !== this.path[this.path.length - 1].osm_id) {
             const orig = event.originalEvent;
 
@@ -110,7 +115,7 @@ export default class LeafletMap extends LitElement {
           }
         },
         mouseover: (event: LeafletEvent) => {
-          const feature: FeatureProperties = event.target.feature.properties
+          const feature: FeatureProperties = event.target.feature.properties;
           if (feature.osm_id !== this.path[this.path.length - 1].osm_id) {
             event.target.setStyle(highlightedFeature);
             this.hovered = feature;
@@ -119,36 +124,39 @@ export default class LeafletMap extends LitElement {
         mouseout: (event: LeafletEvent) => {
           event.target.setStyle(normalFeature);
           this.hovered = null;
-        }
+        },
       });
-    }
+    };
 
+    getUrl(this.getEndpoint() + 'geometry/' + this.osmId + '/').then(
+      (response: WebResponse) => {
+        if (this.states) {
+          this.renderedMap.removeLayer(this.states);
+        }
 
+        const data = response.json;
+        if (this.path.length === 0) {
+          this.path = [
+            {
+              name: data.name,
+              osm_id: this.osmId,
+              level: 0,
+            },
+          ];
+        }
 
-    getUrl(this.getEndpoint() + "geometry/" + this.osmId + "/").then((response: AxiosResponse) => {
-
-      if (this.states) {
-        this.renderedMap.removeLayer(this.states);
+        this.states = geoJSON(data.geometry, {
+          style: visibleStyle,
+          onEachFeature,
+        });
+        this.renderedMap.fitBounds(this.states.getBounds(), {});
+        this.states.addTo(this.renderedMap);
       }
-
-      const data = response.data;
-      if (this.path.length === 0) {
-        this.path = [{
-          name: data.name,
-          osm_id: this.osmId,
-          level: 0
-        }];
-      }
-
-      this.states = geoJSON(data.geometry, { style: visibleStyle, onEachFeature });
-      this.renderedMap.fitBounds(this.states.getBounds(), {});
-      this.states.addTo(this.renderedMap);
-    });
+    );
   }
 
   public updated(changedProperties: Map<string, any>) {
-
-    if (changedProperties.has("hovered")) {
+    if (changedProperties.has('hovered')) {
       if (this.lastHovered) {
         this.lastHovered.setStyle(normalFeature);
       }
@@ -162,15 +170,17 @@ export default class LeafletMap extends LitElement {
       }
     }
 
-    if (changedProperties.has("feature") && this.feature) {
+    if (changedProperties.has('feature') && this.feature) {
       this.hovered = null;
-      if (this.path.length === 0 || this.path[this.path.length - 1].osm_id !== this.feature.osm_id) {
+      if (
+        this.path.length === 0 ||
+        this.path[this.path.length - 1].osm_id !== this.feature.osm_id
+      ) {
         this.path.push(this.feature);
       }
     }
 
-    if (changedProperties.has("osmId")) {
-
+    if (changedProperties.has('osmId')) {
       const path: FeatureProperties[] = [];
       for (const feature of this.path) {
         path.push(feature);
@@ -188,10 +198,13 @@ export default class LeafletMap extends LitElement {
     }
   }
 
-
   public firstUpdated(changedProperties: any) {
-    const mapElement = this.getRenderRoot().getElementById("alias-map");
-    this.renderedMap = map(mapElement, { attributionControl: false, scrollWheelZoom: false, zoomControl: false }).setView([0, 1], 4);
+    const mapElement = this.getRenderRoot().getElementById('alias-map');
+    this.renderedMap = createMap(mapElement, {
+      attributionControl: false,
+      scrollWheelZoom: false,
+      zoomControl: false,
+    }).setView([0, 1], 4);
     this.renderedMap.dragging.disable();
     this.renderedMap.doubleClickZoom.disable();
 
@@ -200,7 +213,7 @@ export default class LeafletMap extends LitElement {
   }
 
   private handleClickedBreadcrumb(e: MouseEvent): void {
-    this.osmId = (e.currentTarget as HTMLElement).getAttribute("data-osmid");
+    this.osmId = (e.currentTarget as HTMLElement).getAttribute('data-osmid');
     const path: FeatureProperties[] = [];
     for (const feature of this.path) {
       path.push(feature);
@@ -222,7 +235,10 @@ export default class LeafletMap extends LitElement {
     }
 
     return html`
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"/>
+      <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+      />
       <div id="alias-map"></div>
     `;
   }

@@ -1,19 +1,12 @@
-import {
-  customElement,
-  TemplateResult,
-  html,
-  css,
-  property,
-} from "lit-element";
-import FormElement from "../FormElement";
-import "fa-icons";
+import { TemplateResult, html, css, property } from 'lit-element';
+import { FormElement } from '../FormElement';
 
-@customElement("temba-checkbox")
-export default class Checkbox extends FormElement {
+export class Checkbox extends FormElement {
   static get styles() {
     return css`
       :host {
         color: var(--color-text);
+        display: inline-block;
       }
 
       temba-field {
@@ -35,6 +28,7 @@ export default class Checkbox extends FormElement {
         font-weight: 300;
         font-size: 14px;
         line-height: 19px;
+        flex-grow: 1;
       }
 
       .far {
@@ -44,12 +38,13 @@ export default class Checkbox extends FormElement {
 
       .disabled {
         cursor: not-allowed;
+        --icon-color: #ccc;
       }
     `;
   }
 
   @property({ type: String })
-  name: string;
+  name = '';
 
   @property({ type: Boolean })
   checked: boolean;
@@ -57,14 +52,22 @@ export default class Checkbox extends FormElement {
   @property({ type: Boolean })
   disabled = false;
 
+  @property({ type: Number })
+  size = 1.2;
+
+  @property({ type: String })
+  animateChange = 'pulse';
+
   public updated(changes: Map<string, any>) {
     super.updated(changes);
-    if (changes.has("checked")) {
+    if (changes.has('checked')) {
       if (this.checked) {
         this.setValue(1);
       } else {
-        this.setValue("");
+        this.setValue('');
       }
+
+      this.fireEvent('change');
     }
   }
 
@@ -72,26 +75,22 @@ export default class Checkbox extends FormElement {
     return value;
   }
 
-  private handleClick(event: MouseEvent): void {
+  private handleClick(): void {
     if (!this.disabled) {
       this.checked = !this.checked;
     }
   }
 
+  public click(): void {
+    this.handleClick();
+  }
+
   public render(): TemplateResult {
-    const icon = this.checked
-      ? html`
-          <fa-icon
-            class="far fa-check-square"
-            size="16px"
-            path-prefix="/sitestatic"
-          >
-          </fa-icon>
-        `
-      : html`
-          <fa-icon class="far fa-square" size="16px" path-prefix="/sitestatic">
-          </fa-icon>
-        `;
+    const icon = html`<temba-icon
+      name="${this.checked ? 'check-' : ''}square"
+      size="${this.size}"
+      animatechange="${this.animateChange}"
+    />`;
 
     return html`
       <temba-field
@@ -100,10 +99,10 @@ export default class Checkbox extends FormElement {
         .errors=${this.errors}
         .widgetOnly=${this.widgetOnly}
         .helpAlways=${true}
-        .disabled=${this.disabled}
+        ?disabled=${this.disabled}
         @click=${this.handleClick}
       >
-        <div class="checkbox-container ${this.disabled ? "disabled" : ""}">
+        <div class="checkbox-container ${this.disabled ? 'disabled' : ''}">
           ${icon}
           ${this.label
             ? html`<div class="checkbox-label">${this.label}</div>`
