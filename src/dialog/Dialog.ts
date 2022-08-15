@@ -189,6 +189,9 @@ export class Dialog extends RapidElement {
   @property()
   ready: boolean;
 
+  @property()
+  width: string;
+
   @property({ attribute: false })
   onButtonClicked: (button: Button) => void;
 
@@ -321,7 +324,9 @@ export class Dialog extends RapidElement {
     const height = this.getDocumentHeight();
 
     const maskStyle = { height: `${height + 100}px` };
-    const dialogStyle = { width: Dialog.widths[this.size] };
+    const dialogStyle = {
+      width: this.width ? this.width : Dialog.widths[this.size],
+    };
 
     const header = this.header
       ? html`

@@ -106,6 +106,9 @@ export class Modax extends RapidElement {
   @property({ type: Boolean })
   noSubmit: boolean;
 
+  @property()
+  width: string;
+
   @property({ type: String })
   body: any = this.getLoading();
 
@@ -326,6 +329,7 @@ export class Modax extends RapidElement {
         header=${this.header}
         .primaryButtonName=${this.noSubmit ? null : this.primaryName}
         .cancelButtonName=${this.cancelName || 'Cancel'}
+        .width=${this.width}
         ?open=${this.open}
         ?loading=${this.fetching}
         ?submitting=${this.submitting}
