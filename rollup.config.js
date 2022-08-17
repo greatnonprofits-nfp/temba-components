@@ -43,7 +43,7 @@ const baseConfig = createSpaConfig({
 
         return html.replace(
           '="../',
-          '="{{STATIC_URL}}@nyaruka/temba-components/dist/'
+          '="{{STATIC_URL}}@greatnonprofits-nfp/temba-components/dist/'
         );
       },
     ],

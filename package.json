@@ -1,6 +1,6 @@
 {
   "name": "@greatnonprofits-nfp/temba-components",
-  "version": "0.13.5",
+  "version": "0.13.8",
   "description": "Web components to support rapidpro and related projects",
   "author": "Nyaruka <code@nyaruka.com>",
   "main": "dist/index.js",
@@ -9,6 +9,9 @@
   "license": "AGPL-3.0-only",
   "repository": "https://github.com/greatnonprofits-nfp/temba-components/",
   "private": false,
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "start": "concurrently --kill-others --names tsc,web-dev-server \"yarn tsc:watch\" \"web-dev-server --app-index demo/index.html --node-resolve --open --watch --port 3010 --esbuild-target auto\"",
     "tsc:watch": "tsc --watch",
