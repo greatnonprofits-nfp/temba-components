@@ -1,5 +1,5 @@
-import { property } from 'lit-element/lib/decorators';
-import { TemplateResult, html, css } from 'lit-element';
+import { property } from 'lit/decorators';
+import { TemplateResult, html, css } from 'lit';
 import { Button } from '../button/Button';
 import { RapidElement } from '../RapidElement';
 import { CustomEventType } from '../interfaces';
@@ -183,6 +183,9 @@ export class Dialog extends RapidElement {
   @property({ type: String })
   cancelButtonName = 'Cancel';
 
+  @property({ type: String })
+  width = null;
+
   @property()
   submittingName = 'Saving';
 
@@ -233,7 +236,9 @@ export class Dialog extends RapidElement {
       if (this.open && !changedProperties.get('open')) {
         this.shadowRoot
           .querySelectorAll('temba-button')
-          .forEach((button: Button) => (button.disabled = false));
+          .forEach((button: Button) => {
+            if (button) button.submitting = false;
+          });
 
         if (!this.noFocus) {
           this.focusFirstInput();
@@ -330,7 +335,15 @@ export class Dialog extends RapidElement {
     const maskStyle = {
       height: `${height + 100}px`,
     };
-    const dialogStyle = { width: Dialog.widths[this.size] };
+
+    const dialogStyle = {
+      width: this.width,
+      minWidth: '250px',
+      maxWidth: '600px',
+    };
+    if (!this.width) {
+      dialogStyle['width'] = Dialog.widths[this.size];
+    }
 
     const header = this.header
       ? html`

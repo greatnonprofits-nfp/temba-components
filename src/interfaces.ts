@@ -1,3 +1,39 @@
+export interface Workspace {
+  uuid: string;
+  name: string;
+  country: string;
+  languages: string[];
+  timezone: string;
+  date_style: DateStyle;
+  anon: boolean;
+}
+
+export enum DateStyle {
+  DayFirst = 'day_first',
+  MonthFirst = 'month_first',
+  YearFirst = 'year_first',
+}
+
+export enum ScheduledEventType {
+  CampaignEvent = 'campaign_event',
+  ScheduledBroadcast = 'scheduled_broadcast',
+  ScheduledTrigger = 'scheduled_trigger',
+}
+
+export enum TicketStatus {
+  Open = 'open',
+  Closed = 'closed',
+}
+
+export interface ScheduledEvent {
+  type: ScheduledEventType;
+  scheduled: string;
+  repeat_period: string;
+  campaign?: ObjectReference;
+  flow?: ObjectReference;
+  message?: string;
+}
+
 export interface User {
   id?: number;
   first_name?: string;
@@ -18,6 +54,25 @@ export interface Ticket {
   ticketer: ObjectReference;
   topic: ObjectReference;
   assignee?: User;
+}
+
+export interface FlowResult {
+  key: string;
+  name: string;
+  categories: string[];
+  node_uuids: string[];
+}
+
+export interface FlowDetails {
+  name: string;
+  results: FlowResult[];
+  modified_on: string;
+  runs: {
+    active: number;
+    completed: number;
+    expired: number;
+    interrupted: number;
+  };
 }
 
 export interface Msg {
@@ -43,6 +98,7 @@ export interface ContactField {
   label: string;
   value_type: string;
   pinned: boolean;
+  priority: number;
 }
 
 export interface ContactGroup {
@@ -83,13 +139,16 @@ export interface Contact {
   stopped: boolean;
   blocked: boolean;
   urns: string[];
-  lang: string;
+  language?: string;
   fields: { [key: string]: string };
   groups: Group[];
   modified_on: string;
   created_on: string;
   last_seen_on: string;
+  status: string;
 
+  anon_display?: string;
+  flow?: ObjectReference;
   last_msg?: Msg;
   direction?: string;
   ticket: {
@@ -178,4 +237,6 @@ export enum CustomEventType {
   Submitted = 'temba-submitted',
   Redirected = 'temba-redirected',
   NoPath = 'temba-no-path',
+  StoreUpdated = 'temba-store-updated',
+  Ready = 'temba-ready',
 }

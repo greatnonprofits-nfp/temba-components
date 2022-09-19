@@ -1,10 +1,11 @@
-/* eslint-disable @typescript-eslint/camelcase */
-import { css, html, LitElement, property, TemplateResult } from 'lit-element';
+import { css, html, LitElement, TemplateResult } from 'lit';
 import { FeatureProperties } from '../interfaces';
 import { getUrl, postJSON, WebResponse } from '../utils';
 import { TextInput } from '../textinput/TextInput';
 import { styleMap } from 'lit-html/directives/style-map';
 import { FormElement } from '../FormElement';
+
+import { property } from 'lit/decorators';
 
 export class AliasEditor extends LitElement {
   static get styles() {
@@ -258,7 +259,7 @@ export class AliasEditor extends LitElement {
                       evt.stopPropagation();
                     }}
                   >
-                    <temba-icon name="edit" path-prefix="/sitestatic" />
+                    <temba-icon name="edit" />
                   </div>
                 `
               : ''}

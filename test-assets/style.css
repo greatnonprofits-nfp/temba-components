@@ -15,8 +15,9 @@ html input {
 }
 
 html {
+  --transition-speed: 0ms !important;
   --input-caret: transparent !important;
-  --font-family: 'Roboto';
+  --font-family: 'Arial';
   --primary-rgb: 35, 135, 202;
   --secondary-rgb: 140, 51, 140;
   --tertiary-rgb: 135, 202, 35;
@@ -65,6 +66,8 @@ html {
   --color-text-dark-secondary: rgba(0, 0, 0, 0.25);
   --color-text-help: rgba(0, 0, 0, 0.35);
 
+  --color-tertiary: rgb(var(--tertiary-rgb));
+  
   /* solid overlays with text */
   --color-overlay-dark: rgba(0, 0, 0, 0.2);
   --color-overlay-dark-text: rgba(255, 255, 255, 0.9);
@@ -168,10 +171,20 @@ temba-button.light.active {
   --button-bg-img: linear-gradient(to bottom, transparent, rgba(0,0,0,.02));
 }
 
+temba-contact-history {
+  min-height:0;
+  display:flex;
+  flex-grow:1;
+  flex-direction:column;
+}
 
 temba-select:focus {
   outline: none;
   box-shadow: none;
+}
+
+temba-datepicker {
+  margin: 1em;
 }
 
 .flatpickr-calendar {

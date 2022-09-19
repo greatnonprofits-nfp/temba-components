@@ -1,13 +1,17 @@
-import { property, LitElement, TemplateResult, html, css } from 'lit-element';
+import { LitElement, TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 
 import { getClasses } from '../utils';
 
 // for cache busting, increase whenever the icon set changes
-const ICON_VERSION = 5;
+const ICON_VERSION = 15;
 
 export class VectorIcon extends LitElement {
   @property({ type: String })
   name: string;
+
+  @property({ type: String })
+  prefix: string;
 
   // same as name but without implicit coloring
   @property({ type: String })
@@ -25,8 +29,14 @@ export class VectorIcon extends LitElement {
   @property({ type: String })
   animateChange: string;
 
+  @property({ type: String })
+  animateClick: string;
+
   @property({ type: Number })
   animationDuration = 200;
+
+  @property({ type: String })
+  src = '';
 
   @property({ type: Number, attribute: false })
   steps = 2;
@@ -41,15 +51,9 @@ export class VectorIcon extends LitElement {
     return css`
       :host {
         margin: auto;
-        --color1: var(--icon-color);
       }
 
-      :host([id='flow']),
-      :host([name='flow']) {
-        padding-bottom: 0.2em;
-      }
-
-      svg {
+      .sheet {
         fill: var(--icon-color);
         transform: scale(1);
         transition: fill 100ms ease-in-out,
@@ -58,34 +62,34 @@ export class VectorIcon extends LitElement {
           margin 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
       }
 
-      svg.spin {
+      .sheet.spin {
         transform: rotate(0deg);
       }
 
-      svg.spin-1 {
+      .sheet.spin-1 {
         transform: rotate(180deg);
       }
 
-      svg.spin-2 {
+      .sheet.spin-2 {
         transform: rotate(360deg);
       }
 
-      svg.spin-3 {
+      .sheet.spin-3 {
         transform: rotate(0deg);
         transition-duration: 0ms !important;
       }
 
-      svg.pulse {
+      .sheet.pulse {
         transform: scale(1);
       }
 
-      svg.pulse-1 {
+      .sheet.pulse-1 {
         transform: scale(1.2);
       }
 
       .clickable:hover {
         cursor: pointer;
-        fill: var(--color-link-primary);
+        fill: var(--color-link-primary) !important;
         background: rgb(255, 255, 255);
       }
 
@@ -100,7 +104,7 @@ export class VectorIcon extends LitElement {
         display: flex;
         flex-direction: column;
         border-radius: 999px;
-        transition: background 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
+        transition: background 200ms linear,
           transform 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
           padding 150ms linear, margin 150ms linear;
       }
@@ -110,8 +114,14 @@ export class VectorIcon extends LitElement {
       }
 
       .wrapper.clickable:hover {
-        padding: 0.35em;
-        margin: -0.35em;
+        --icon-circle-size: 0.35em;
+        --icon-background: var(--icon-color-circle-hover);
+      }
+
+      .wrapper.clickable {
+        padding: var(--icon-circle-size);
+        margin: calc(-1 * var(--icon-circle-size));
+        background: var(--icon-background);
       }
     `;
   }
@@ -135,6 +145,12 @@ export class VectorIcon extends LitElement {
         this.animationDuration = 400;
         this.easing = 'linear';
       }
+    }
+  }
+
+  public handleClicked() {
+    if (this.animateClick) {
+      this.animationStep = 1;
     }
   }
 
@@ -170,10 +186,11 @@ export class VectorIcon extends LitElement {
   public render(): TemplateResult {
     return html`
       <div
+        @click=${this.handleClicked}
         class="wrapper ${getClasses({
           clickable: this.clickable,
           circled: this.circled,
-          animate: !!this.animateChange,
+          animate: !!this.animateChange || !!this.animateClick,
         })}"
       >
         <svg
@@ -182,16 +199,23 @@ export class VectorIcon extends LitElement {
           this.steps}ms
           ${this.easing}"
           class="${getClasses({
+            sheet: this.src === '',
             [this.animateChange]: !!this.animateChange,
             [this.animateChange + '-' + this.animationStep]:
+              this.animationStep > 0,
+            [this.animateClick]: !!this.animateClick,
+            [this.animateClick + '-' + this.animationStep]:
               this.animationStep > 0,
           })}"
         >
           <use
-            href="/sitestatic/icons/symbol-defs.svg?v=${ICON_VERSION}#icon-${this
-              .lastName ||
-            this.name ||
-            this.id}"
+            href="${this.src
+              ? this.src
+              : `${
+                  this.prefix || (window as any).static_url || '/static/'
+                }icons/symbol-defs.svg?v=${ICON_VERSION}#icon-${
+                  this.lastName || this.name || this.id
+                }`}"
           />
         </svg>
       </div>

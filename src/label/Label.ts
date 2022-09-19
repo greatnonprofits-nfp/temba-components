@@ -1,15 +1,8 @@
-import {
-  LitElement,
-  TemplateResult,
-  html,
-  css,
-  customElement,
-  property,
-} from 'lit-element';
+import { LitElement, TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 import { getClasses } from '../utils';
 import { styleMap } from 'lit-html/directives/style-map';
 
-@customElement('temba-label')
 export default class Label extends LitElement {
   static get styles() {
     return css`
@@ -17,9 +10,19 @@ export default class Label extends LitElement {
         display: inline-block;
       }
 
+      slot {
+        white-space: nowrap;
+      }
+
       .mask {
-        padding: 3px 6px;
-        border-radius: var(--curvature);
+        padding: 3px 8px;
+        border-radius: 12px;
+        display: flex;
+      }
+
+      temba-icon {
+        margin-right: 0.3em;
+        padding-bottom: 0.1em;
       }
 
       .label.clickable .mask:hover {
@@ -27,40 +30,53 @@ export default class Label extends LitElement {
       }
 
       .label {
-        border-radius: 2px;
-        font-size: 80%;
+        font-size: 0.8em;
         font-weight: 400;
-        border-radius: var(--curvature);
+        border-radius: 12px;
+        box-shadow: 0 0.04em 0.08em rgba(0, 0, 0, 0.15);
+        background: var(--color-overlay-light);
+        color: var(--color-overlay-light-text);
+        --icon-color: var(--color-overlay-light-text);
+        text-shadow: none;
+      }
+
+      .danger {
         background: tomato;
         color: #fff;
-        text-shadow: 0 0.04em 0.04em rgba(0, 0, 0, 0.35);
+        --icon-color: #fff;
       }
 
       .primary {
-        background: var(--color-label-primary);
-        color: var(--color-label-primary-text);
+        background: var(--color-primary-dark);
+        color: var(--color-text-light);
+        --icon-color: var(--color-text-light);
       }
 
       .secondary {
-        background: var(--color-label-secondary);
-        color: var(--color-label-secondary-text);
-        text-shadow: none;
+        background: var(--color-secondary-dark);
+        color: var(--color-text-light);
+        --icon-color: var(--color-text-light);
       }
 
-      .light {
-        background: var(--color-overlay-light);
-        color: var(--color-overlay-light-text);
-        text-shadow: none;
+      .tertiary {
+        background: var(--color-tertiary);
+        color: var(--color-text-light);
+        --icon-color: var(--color-text-light);
       }
 
       .dark {
         background: var(--color-overlay-dark);
         color: var(--color-overlay-dark-text);
+        --icon-color: var(--color-overlay-dark-text);
         text-shadow: none;
       }
 
       .clickable {
         cursor: pointer;
+      }
+
+      .shadow {
+        box-shadow: 1px 1px 2px 1px rgba(0, 0, 0, 0.1);
       }
     `;
   }
@@ -75,10 +91,19 @@ export default class Label extends LitElement {
   secondary: boolean;
 
   @property({ type: Boolean })
-  light: boolean;
+  tertiary: boolean;
+
+  @property({ type: Boolean })
+  danger: boolean;
 
   @property({ type: Boolean })
   dark: boolean;
+
+  @property({ type: Boolean })
+  shadow: boolean;
+
+  @property({ type: String })
+  icon: string;
 
   @property()
   backgroundColor: string;
@@ -87,13 +112,16 @@ export default class Label extends LitElement {
   textColor: string;
 
   public render(): TemplateResult {
-    const labelStyle =
-      this.backgroundColor && this.textColor
-        ? {
-            background: `${this.backgroundColor}`,
-            color: `${this.textColor}`,
-          }
-        : {};
+    const labelStyle = {};
+
+    if (this.backgroundColor) {
+      labelStyle['background'] = this.backgroundColor;
+    }
+
+    if (this.textColor) {
+      labelStyle['color'] = this.textColor;
+      labelStyle['--icon-color'] = this.textColor;
+    }
 
     return html`
       <div
@@ -101,12 +129,14 @@ export default class Label extends LitElement {
           clickable: this.clickable,
           primary: this.primary,
           secondary: this.secondary,
-          light: this.light,
-          dark: this.dark,
+          tertiary: this.tertiary,
+          shadow: this.shadow,
+          danger: this.danger,
         })}"
         style=${styleMap(labelStyle)}
       >
         <div class="mask">
+          ${this.icon ? html`<temba-icon name=${this.icon} />` : null}
           <slot></slot>
         </div>
       </div>

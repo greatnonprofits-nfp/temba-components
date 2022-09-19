@@ -1,5 +1,5 @@
 import { assert, expect, fixture } from '@open-wc/testing';
-import sinon from 'sinon';
+import * as sinon from 'sinon';
 import { Dialog } from '../src/dialog/Dialog';
 import { assertScreenshot, getClip } from './utils.test';
 
@@ -12,7 +12,7 @@ const getDialogClip = (dialog: Dialog) => {
 const getDialogHTML = (hideOnClick = false) => {
   return `
     <temba-dialog header="Hello Dialog" ${hideOnClick ? 'hideOnClick' : ''}>
-      <textarea name="comment" style="margin: 10px"></textarea>
+      <input name="comment" type="text" style="margin: 10px"/>
     </temba-dialog>
   `;
 };
@@ -89,8 +89,8 @@ describe('temba-dialog', () => {
     const dialog: Dialog = await fixture(getDialogHTML());
     await open(dialog);
 
-    const textarea = dialog.querySelector('textarea');
-    expect(document.activeElement).to.equal(textarea);
+    const input = dialog.querySelector('input');
+    expect(document.activeElement).to.equal(input);
     await assertScreenshot('dialog/focused', getDialogClip(dialog));
   });
 
@@ -98,9 +98,8 @@ describe('temba-dialog', () => {
     const dialog: Dialog = await fixture(getDialogHTML(true));
     await open(dialog);
 
-    const mask: HTMLDivElement = dialog.shadowRoot.querySelector(
-      '#dialog-mask'
-    );
+    const mask: HTMLDivElement =
+      dialog.shadowRoot.querySelector('#dialog-mask');
     mask.click();
 
     await dialog.updateComplete;

@@ -1,4 +1,5 @@
-import { TemplateResult, html, property, css } from 'lit-element';
+import { TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 import { CustomEventType } from '../interfaces';
 import { RapidElement, EventHandler } from '../RapidElement';
 import { styleMap } from 'lit-html/directives/style-map';
@@ -13,9 +14,8 @@ export class Options extends RapidElement {
   static get styles() {
     return css`
       .options-container {
-        background: var(--color-widget-bg-focused);
+        background: var(--color-options-bg);
         user-select: none;
-        box-shadow: var(--options-shadow);
         border-radius: var(--curvature-widget);
         overflow: hidden;
         margin-top: var(--options-margin-top);
@@ -29,6 +29,10 @@ export class Options extends RapidElement {
         pointer-events: none;
         opacity: 0;
         border: 1px transparent;
+      }
+
+      .shadow {
+        box-shadow: var(--options-shadow);
       }
 
       .anchored {
@@ -51,10 +55,17 @@ export class Options extends RapidElement {
       }
 
       :host([block]) {
-        box-shadow: var(--options-block-shadow);
         border-radius: var(--curvature);
         display: block;
         height: 100%;
+      }
+
+      :host([block]) .shadow {
+        box-shadow: var(--options-block-shadow);
+      }
+
+      .bordered {
+        border: 1px solid var(--color-widget-border) !important;
       }
 
       :host([block]) .options {
@@ -153,7 +164,7 @@ export class Options extends RapidElement {
         align-items: center;
         background: #eee;
         max-height: 0;
-        transition: max-height 200ms ease-in-out;
+        transition: max-height var(--transition-speed) ease-in-out;
         border-bottom-left-radius: var(--curvature-widget);
         border-bottom-right-radius: var(--curvature-widget);
         display: flex;
@@ -174,6 +185,12 @@ export class Options extends RapidElement {
 
   @property({ type: Number })
   width: number;
+
+  @property({ type: Number, attribute: 'static-width' })
+  staticWidth: number;
+
+  @property({ type: Boolean, attribute: 'anchor-right' })
+  anchorRight: boolean;
 
   @property({ type: Number })
   marginHorizontal = 0;
@@ -216,6 +233,9 @@ export class Options extends RapidElement {
 
   @property({ type: Boolean })
   collapsed: boolean;
+
+  @property({ type: Boolean })
+  hideShadow = false;
 
   @property({ attribute: false })
   getName: { (option: any): string } = function (option: any) {
@@ -512,7 +532,14 @@ export class Options extends RapidElement {
         }
 
         this.left = anchorBounds.left;
-        this.width = anchorBounds.width - 2 - this.marginHorizontal * 2;
+        this.width =
+          this.staticWidth > 0
+            ? this.staticWidth
+            : anchorBounds.width - 2 - this.marginHorizontal * 2;
+
+        if (this.anchorRight) {
+          this.left = anchorBounds.right - this.width;
+        }
       }
     }
   }
@@ -588,6 +615,8 @@ export class Options extends RapidElement {
       top: this.poppedTop,
       anchored: !this.block,
       loading: this.loading,
+      shadow: !this.hideShadow,
+      bordered: this.hideShadow,
     });
 
     const classesInner = getClasses({

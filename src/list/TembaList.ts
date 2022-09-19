@@ -1,7 +1,8 @@
-import { css, html, property, TemplateResult } from 'lit-element';
-import { reset } from 'sinon';
+import { css, html, TemplateResult } from 'lit';
+import { property } from 'lit/decorators';
 import { CustomEventType } from '../interfaces';
 import { RapidElement } from '../RapidElement';
+import { Store } from '../store/Store';
 import { fetchResultsPage, ResultsPage } from '../utils';
 
 const DEFAULT_REFRESH = 10000;
@@ -37,6 +38,12 @@ export class TembaList extends RapidElement {
   @property({ type: Boolean })
   collapsed: boolean;
 
+  @property({ type: Boolean })
+  hideShadow: boolean;
+
+  @property({ type: Boolean })
+  paused = false;
+
   @property({ attribute: false })
   getNextRefresh: (firstOption: any) => any;
 
@@ -56,12 +63,16 @@ export class TembaList extends RapidElement {
   @property({ type: String })
   refreshKey = '0';
 
+  reverseRefresh = true;
+
   // our next page from our endpoint
   nextPage: string = null;
 
   pages = 0;
   clearRefreshTimeout: any;
   pending: AbortController[] = [];
+
+  store: Store;
 
   // used for testing only
   preserve: boolean;
@@ -72,9 +83,6 @@ export class TembaList extends RapidElement {
   static get styles() {
     return css`
       :host {
-        display: block;
-        height: 100%;
-        width: 100%;
       }
 
       temba-options {
@@ -82,18 +90,12 @@ export class TembaList extends RapidElement {
         width: 100%;
         flex-grow: 1;
       }
-
-      .wrapper {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        align-items: center;
-      }
     `;
   }
 
   constructor() {
     super();
+    this.store = document.querySelector('temba-store') as Store;
     this.handleSelection.bind(this);
   }
 
@@ -110,7 +112,9 @@ export class TembaList extends RapidElement {
   public connectedCallback() {
     super.connectedCallback();
     this.refreshInterval = setInterval(() => {
-      this.refreshKey = 'default_' + new Date().getTime();
+      if (!this.paused) {
+        this.refreshKey = 'default_' + new Date().getTime();
+      }
     }, DEFAULT_REFRESH);
   }
 
@@ -139,7 +143,9 @@ export class TembaList extends RapidElement {
     }
 
     if (changedProperties.has('mostRecentItem')) {
-      this.fireCustomEvent(CustomEventType.Refreshed);
+      if (this.mostRecentItem) {
+        this.fireCustomEvent(CustomEventType.Refreshed);
+      }
     }
 
     if (changedProperties.has('cursorIndex')) {
@@ -221,6 +227,11 @@ export class TembaList extends RapidElement {
    * Refreshes the first page, updating any found items in our list
    */
   private async refreshTop(): Promise<void> {
+    const refreshEndpoint = this.getRefreshEndpoint();
+    if (!refreshEndpoint) {
+      return;
+    }
+
     // cancel any outstanding requests
     while (this.pending.length > 0) {
       const pending = this.pending.pop();
@@ -256,7 +267,19 @@ export class TembaList extends RapidElement {
         });
 
         // insert our new items at the front
-        const newItems = [...page.results.reverse(), ...items];
+        let results = page.results;
+        if (this.reverseRefresh) {
+          results = page.results.reverse();
+        }
+        const newItems = [...results, ...items];
+
+        const topItem = newItems[0];
+        if (
+          !this.mostRecentItem ||
+          JSON.stringify(this.mostRecentItem) !== JSON.stringify(topItem)
+        ) {
+          this.mostRecentItem = topItem;
+        }
 
         if (prevItem) {
           const newItem = newItems[this.cursorIndex];
@@ -269,10 +292,12 @@ export class TembaList extends RapidElement {
 
             // make sure our focused item is visible
             window.setTimeout(() => {
-              const option = this.shadowRoot
-                .querySelector('temba-options')
-                .shadowRoot.querySelector('.option.focused');
-              option.scrollIntoView({ block: 'end', inline: 'nearest' });
+              const options = this.shadowRoot.querySelector('temba-options');
+              if (options) {
+                const option =
+                  options.shadowRoot.querySelector('.option.focused');
+                option.scrollIntoView({ block: 'end', inline: 'nearest' });
+              }
             }, 0);
           }
         }
@@ -321,7 +346,9 @@ export class TembaList extends RapidElement {
         pages++;
       } catch (error) {
         // aborted
-        reset();
+        this.reset();
+
+        console.log('error, resetting');
         return;
       }
 
@@ -408,6 +435,18 @@ export class TembaList extends RapidElement {
     }
   }
 
+  public renderHeader(): TemplateResult {
+    return null;
+  }
+
+  public renderFooter(): TemplateResult {
+    return null;
+  }
+
+  public getListStyle() {
+    return '';
+  }
+
   private handleSelection(event: CustomEvent) {
     const { selected, index } = event.detail;
 
@@ -419,10 +458,13 @@ export class TembaList extends RapidElement {
   }
 
   public render(): TemplateResult {
-    return html`<div class="wrapper">
+    return html`
+      ${this.renderHeader()}
       <temba-options
+        style="${this.getListStyle()}"
         ?visible=${true}
         ?block=${true}
+        ?hideShadow=${this.hideShadow}
         ?collapsed=${this.collapsed}
         ?loading=${this.loading}
         .renderOption=${this.renderOption}
@@ -434,6 +476,7 @@ export class TembaList extends RapidElement {
       >
         <slot></slot>
       </temba-options>
-    </div>`;
+      ${this.renderFooter()}
+    `;
   }
 }

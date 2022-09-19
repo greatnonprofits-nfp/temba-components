@@ -1,5 +1,6 @@
-import { TemplateResult, html, css, property } from 'lit-element';
+import { TemplateResult, html, css } from 'lit';
 import { FormElement } from '../FormElement';
+import { property } from 'lit/decorators';
 
 export class Checkbox extends FormElement {
   static get styles() {
@@ -96,6 +97,7 @@ export class Checkbox extends FormElement {
 
   public click(): void {
     this.handleClick();
+    super.click();
   }
 
   public render(): TemplateResult {
@@ -104,6 +106,8 @@ export class Checkbox extends FormElement {
       size="${this.size}"
       animatechange="${this.animateChange}"
     />`;
+
+    this.label = this.label ? this.label.trim() : null;
 
     return html`
       <div class="wrapper ${this.label ? 'label' : ''}">

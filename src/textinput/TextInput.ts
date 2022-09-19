@@ -1,11 +1,11 @@
-import { TemplateResult, html, css, property } from 'lit-element';
+import { TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 import { ifDefined } from 'lit-html/directives/if-defined';
 import { styleMap } from 'lit-html/directives/style-map';
 import { FormElement } from '../FormElement';
 import { Modax } from '../dialog/Modax';
 import { sanitize } from './helpers';
 import { CharCount } from '../charcount/CharCount';
-import 'lit-flatpickr';
 
 export class TextInput extends FormElement {
   static get styles() {
@@ -15,13 +15,11 @@ export class TextInput extends FormElement {
         cursor: text;
         background: var(--color-widget-bg);
         border: 1px solid var(--color-widget-border);
-        transition: all ease-in-out 200ms;
+        transition: all ease-in-out var(--transition-speed);
         display: flex;
         flex-direction: row;
         align-items: stretch;
-
         box-shadow: var(--widget-box-shadow);
-
         caret-color: var(--input-caret);
       }
 
@@ -46,6 +44,8 @@ export class TextInput extends FormElement {
         border-color: var(--color-focus);
         background: var(--color-widget-bg-focused);
         box-shadow: var(--widget-box-shadow-focused);
+        z-index: 10000;
+        position: relative;
       }
 
       .input-container:hover {
@@ -70,20 +70,6 @@ export class TextInput extends FormElement {
         resize: none;
         font-weight: 300;
         width: 100%;
-      }
-
-      .textinput.withdate {
-        cursor: pointer;
-      }
-
-      .textinput.withdate.loading {
-        color: #fff;
-      }
-
-      .datepicker {
-        padding: 9px;
-        margin: 0px;
-        border: 1px red solid;
       }
 
       .textinput:focus {
@@ -129,20 +115,11 @@ export class TextInput extends FormElement {
   @property({ type: Boolean })
   textarea: boolean;
 
-  @property({ type: Boolean })
-  datepicker: boolean;
-
-  @property({ type: Boolean })
-  datetimepicker: boolean;
-
   @property({ type: String })
   placeholder = '';
 
   @property({ type: String })
   value = '';
-
-  @property({ type: String })
-  name = '';
 
   @property({ type: Boolean })
   password: boolean;
@@ -152,9 +129,6 @@ export class TextInput extends FormElement {
 
   @property({ type: Object })
   inputElement: HTMLInputElement;
-
-  @property({ type: Object })
-  dateElement: any;
 
   @property({ type: Boolean })
   clearable: boolean;
@@ -176,9 +150,6 @@ export class TextInput extends FormElement {
   onBlur: any;
 
   @property({ type: Boolean })
-  disabled = false;
-
-  @property({ type: Boolean })
   autogrow = false;
 
   counterElement: CharCount = null;
@@ -191,12 +162,6 @@ export class TextInput extends FormElement {
 
   public firstUpdated(changes: Map<string, any>) {
     super.firstUpdated(changes);
-
-    this.dateElement = this.shadowRoot.querySelector('.datepicker');
-    if (this.dateElement) {
-      this.onDateUpdated = this.onDateUpdated.bind(this);
-      this.onDateReady = this.onDateReady.bind(this);
-    }
 
     this.inputElement = this.shadowRoot.querySelector('.textinput');
 
@@ -215,6 +180,7 @@ export class TextInput extends FormElement {
 
   public updated(changes: Map<string, any>) {
     super.updated(changes);
+
     if (changes.has('value')) {
       this.setValues([this.value]);
       this.fireEvent('change');
@@ -234,30 +200,8 @@ export class TextInput extends FormElement {
     }
   }
 
-  private onDateUpdated(dates: Date[], formattedDate: string) {
-    if (dates.length > 0) {
-      this.inputElement.value = this.dateElement.formatDate(
-        dates[0],
-        this.dateElement.altFormat
-      );
-
-      this.setValue(formattedDate);
-      this.inputElement.blur();
-    }
-  }
-
-  private onDateReady() {
-    window.setTimeout(() => {
-      if (this.value) {
-        this.inputElement.value = this.dateElement.formatDate(
-          this.dateElement.parseDate(this.value),
-          this.dateElement.altFormat
-        );
-        this.dateElement.setDate(this.value);
-      }
-
-      this.loading = false;
-    }, 0);
+  public getDisplayValue() {
+    return this.inputElement.value;
   }
 
   private handleClear(event: any): void {
@@ -300,15 +244,6 @@ export class TextInput extends FormElement {
     this.fireEvent('change');
   }
 
-  private handleDateClick(): void {
-    if (this.disabled) {
-      return;
-    }
-
-    this.dateElement.open();
-    this.dateElement.focus();
-  }
-
   private handleContainerClick(): void {
     if (this.disabled) {
       return;
@@ -316,8 +251,6 @@ export class TextInput extends FormElement {
 
     if (this.inputElement) {
       this.inputElement.focus();
-    } else {
-      this.handleDateClick();
     }
   }
 
@@ -481,34 +414,6 @@ export class TextInput extends FormElement {
       }
     }
 
-    if (this.datepicker || this.datetimepicker) {
-      input = html`
-        <input
-          class="textinput withdate ${this.loading ? 'loading' : ''}"
-          name=${this.name}
-          type="text"
-          @click=${this.handleDateClick}
-          @focus=${this.handleDateClick}
-          @keydown=${(e: any) => {
-            e.preventDefault();
-          }}
-          readonly="true"
-          placeholder="${this.placeholder}"
-          .value="${this.value}"
-          ?disabled=${this.disabled}
-        />
-        <lit-flatpickr
-          class="datepicker hidden"
-          altInput
-          altFormat="${this.datepicker ? 'F j, Y' : 'F j, Y h:i K'}"
-          dateFormat="${this.datepicker ? 'Y-m-d' : 'Y-m-d H:i'}"
-          .onValueUpdate=${this.onDateUpdated}
-          .onReady=${this.onDateReady}
-          ?enableTime=${this.datetimepicker}
-        ></lit-flatpickr>
-      `;
-    }
-
     return html`
       <temba-field
         name=${this.name}
@@ -524,6 +429,7 @@ export class TextInput extends FormElement {
           style=${styleMap(containerStyle)}
           @click=${this.handleContainerClick}
         >
+          <slot name="prefix"></slot>
           ${input} ${clear}
           <slot></slot>
         </div>

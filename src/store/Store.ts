@@ -1,14 +1,36 @@
-import { LitElement, property } from 'lit-element';
-import { getUrl, getAssets, Asset, WebResponse } from '../utils';
+import { property } from 'lit/decorators';
+import {
+  fetchResults,
+  getUrl,
+  getAssets,
+  Asset,
+  WebResponse,
+  postUrl,
+} from '../utils';
 import {
   ContactField,
   ContactGroup,
   CompletionOption,
   CompletionSchema,
   KeyedAssets,
+  CustomEventType,
+  Workspace,
 } from '../interfaces';
+import { RapidElement } from '../RapidElement';
+import Lru from 'tiny-lru';
+import {
+  HumanizeDurationLanguage,
+  HumanizeDuration,
+} from 'humanize-duration-ts';
+import { DateTime } from 'luxon';
 
-export class Store extends LitElement {
+export class Store extends RapidElement {
+  @property({ type: Number })
+  ttl = 60000;
+
+  @property({ type: Number })
+  max = 20;
+
   @property({ type: String, attribute: 'completion' })
   completionEndpoint: string;
 
@@ -21,6 +43,12 @@ export class Store extends LitElement {
   @property({ type: String, attribute: 'globals' })
   globalsEndpoint: string;
 
+  @property({ type: String, attribute: 'languages' })
+  languagesEndpoint: string;
+
+  @property({ type: String, attribute: 'workspace' })
+  workspaceEndpoint: string;
+
   @property({ type: Object, attribute: false })
   private schema: CompletionSchema;
 
@@ -30,13 +58,40 @@ export class Store extends LitElement {
   @property({ type: Object, attribute: false })
   private keyedAssets: KeyedAssets = {};
 
+  private locale = [...navigator.languages];
+
   private fields: { [key: string]: ContactField } = {};
   private groups: { [uuid: string]: ContactGroup } = {};
+  private languages: any = {};
+  private workspace: Workspace;
+  private pinnedFields: ContactField[] = [];
+
+  private langService = new HumanizeDurationLanguage();
+  private humanizer = new HumanizeDuration(this.langService);
 
   // http promise to monitor for completeness
   public httpComplete: Promise<void | WebResponse[]>;
 
-  public firstUpdated() {
+  private cache: any;
+
+  public reset() {
+    this.cache = Lru(this.max, this.ttl);
+
+    /* 
+    // This will create a shorthand unit
+    this.humanizer.addLanguage("en", {
+      y: () => "y",
+      mo: () => "mo",
+      w: () => "w",
+      d: () => "d",
+      h: () => "h",
+      m: () => "m",
+      s: () => "s",
+      ms: () => "ms",
+      decimal: ".",
+    });
+    */
+
     const fetches = [];
     if (this.completionEndpoint) {
       fetches.push(
@@ -51,9 +106,18 @@ export class Store extends LitElement {
       fetches.push(
         getAssets(this.fieldsEndpoint).then((assets: Asset[]) => {
           this.keyedAssets['fields'] = [];
+          this.pinnedFields = [];
+
           assets.forEach((field: ContactField) => {
             this.keyedAssets['fields'].push(field.key);
             this.fields[field.key] = field;
+            if (field.pinned) {
+              this.pinnedFields.push(field);
+            }
+          });
+
+          this.pinnedFields.sort((a, b) => {
+            return b.priority - a.priority;
           });
         })
       );
@@ -63,6 +127,22 @@ export class Store extends LitElement {
       fetches.push(
         getAssets(this.globalsEndpoint).then((assets: Asset[]) => {
           this.keyedAssets['globals'] = assets.map((asset: Asset) => asset.key);
+        })
+      );
+    }
+
+    if (this.languagesEndpoint) {
+      fetches.push(
+        getAssets(this.languagesEndpoint).then((results: any[]) => {
+          // convert array of objects to lookup
+          this.languages = results.reduce(function (
+            languages: any,
+            result: any
+          ) {
+            languages[result.value] = result.name;
+            return languages;
+          },
+          {});
         })
       );
     }
@@ -77,7 +157,59 @@ export class Store extends LitElement {
       );
     }
 
+    if (this.workspaceEndpoint) {
+      fetches.push(
+        getUrl(this.workspaceEndpoint).then((response: WebResponse) => {
+          this.workspace = response.json;
+          const lang = response.headers.get('content-language');
+          if (lang) {
+            this.locale = [lang, ...this.locale];
+          }
+        })
+      );
+    }
+
     this.httpComplete = Promise.all(fetches);
+  }
+
+  public firstUpdated() {
+    this.reset();
+  }
+
+  public getLanguageCode() {
+    if (this.locale.length > 0) {
+      return this.locale[0].split('-')[0];
+    }
+    return 'en';
+  }
+
+  public getShortDuration(
+    isoDateA: string,
+    isoDateB: string = null,
+    showSeconds = false
+  ) {
+    const scheduled = DateTime.fromISO(isoDateA);
+    const now = isoDateB ? DateTime.fromISO(isoDateB) : DateTime.now();
+
+    const duration = scheduled.diff(now).valueOf();
+
+    if (showSeconds) {
+      return this.humanizer.humanize(duration, {
+        language: this.getLanguageCode(),
+        largest: 1,
+        round: true,
+      });
+    }
+
+    if (Math.abs(duration) < 60000) {
+      return 'just now';
+    }
+
+    return this.humanizer.humanize(duration, {
+      language: this.getLanguageCode(),
+      largest: 1,
+      round: false,
+    });
   }
 
   public setKeyedAssets(name: string, values: string[]): void {
@@ -104,11 +236,141 @@ export class Store extends LitElement {
     return this.fields[key];
   }
 
+  public getPinnedFields(): ContactField[] {
+    return this.pinnedFields;
+  }
+
+  public getLanguageName(iso: string) {
+    return this.languages[iso];
+  }
+
   public isDynamicGroup(uuid: string): boolean {
     const group = this.groups[uuid];
     if (group && group.query) {
       return true;
     }
     return false;
+  }
+
+  public getWorkspace(): Workspace {
+    return this.workspace;
+  }
+
+  public formatDate(dateString: string) {
+    return new Date(dateString).toLocaleString(this.locale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    });
+  }
+
+  public postUrl(
+    url: string,
+    payload: any = '',
+    headers: any = {},
+    contentType = null
+  ) {
+    return postUrl(url, payload, headers, contentType);
+  }
+
+  public getUrl(
+    url: string,
+    options?: {
+      force?: boolean;
+      controller?: AbortController;
+      headers?: { [key: string]: string };
+    }
+  ): Promise<WebResponse> {
+    options = options || {};
+    if (!options.force && this.cache.has(url)) {
+      return new Promise<WebResponse>(resolve => {
+        resolve(this.cache.get(url));
+      });
+    }
+
+    return getUrl(url, options.controller, options.headers || {}).then(
+      (response: WebResponse) => {
+        return new Promise<WebResponse>((resolve, reject) => {
+          if (response.status >= 200 && response.status <= 300) {
+            this.cache.set(url, response);
+            resolve(response);
+          } else {
+            reject('Status: ' + response.status);
+          }
+        });
+      }
+    );
+  }
+
+  private pendingResolves = {};
+
+  /**
+   * Fetches all of the results for a given API endpoint with caching
+   * @param url
+   */
+  public getResults(
+    url: string,
+    options?: { force?: boolean }
+  ): Promise<any[]> {
+    options = options || {};
+    const key = 'results_' + url;
+    const results = this.cache.get(key);
+
+    if (!options.force && results) {
+      return new Promise<any[]>(resolve => {
+        resolve(results);
+      });
+    }
+
+    return new Promise<any[]>(resolve => {
+      const pending = this.pendingResolves[url] || [];
+      pending.push(resolve);
+      this.pendingResolves[url] = pending;
+      if (pending.length <= 1) {
+        fetchResults(url).then((results: any[]) => {
+          this.cache.set(key, results);
+          const pending = this.pendingResolves[url] || [];
+          while (pending.length > 0) {
+            const resolve = pending.pop();
+            resolve(results);
+          }
+        });
+      }
+    });
+  }
+
+  public fetching: { [url: string]: number } = {};
+
+  public updateCache(url: string, data: any) {
+    this.cache.set(url, data);
+    this.fireCustomEvent(CustomEventType.StoreUpdated, { url, data });
+  }
+
+  public makeRequest(
+    url: string,
+    options?: { force?: boolean; prepareData?: (data: any) => any }
+  ) {
+    const previousRequest = this.fetching[url];
+    const now = new Date().getTime();
+    // if the request was recently made, don't do anything
+    if (previousRequest && now - previousRequest < 500) {
+      return;
+    }
+
+    this.fetching[url] = now;
+    options = options || {};
+    const cached = this.cache.get(url);
+    if (cached && !options.force) {
+      this.fireCustomEvent(CustomEventType.StoreUpdated, { url, data: cached });
+    } else {
+      fetchResults(url).then(data => {
+        data = options.prepareData ? options.prepareData(data) : data;
+        this.cache.set(url, data);
+        this.fireCustomEvent(CustomEventType.StoreUpdated, { url, data });
+        delete this.fetching[url];
+      });
+    }
   }
 }

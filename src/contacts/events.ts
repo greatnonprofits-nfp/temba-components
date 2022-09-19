@@ -1,5 +1,4 @@
-import { css } from 'lit-element';
-import { html, TemplateResult } from 'lit-html';
+import { css, html, TemplateResult } from 'lit';
 import { Msg, ObjectReference, User } from '../interfaces';
 import { getClasses, oxford, oxfordFn, oxfordNamed, timeSince } from '../utils';
 import { getDisplayName } from './helpers';
@@ -7,21 +6,54 @@ import { getDisplayName } from './helpers';
 export const getEventStyles = () => {
   return css`
     .grouping {
-      padding: 0 2em;
-      margin: 0 -1em;
+      margin-top: 1em;
     }
 
     .grouping.verbose {
       background: #f9f9f9;
-      max-height: 1px;
-      border-top: 1px solid #f9f9f9;
-      padding-top: 0;
-      padding-bottom: 0;
-      margin-top: 0;
-      margin-bottom: 1.5em;
-      color: #efefef;
+      color: var(--color-dark);
       --color-link-primary: rgba(38, 166, 230, 1);
       pointer-events: none;
+      background: #fefefe;
+      box-shadow: -8px 0px 8px 1px rgba(0, 0, 0, 0.05) inset;
+      margin-right: -16px;
+      padding-right: 16px;
+      margin-bottom: 1.3em;
+    }
+
+    .grouping .items {
+      display: block;
+    }
+
+    .grouping.verbose .items {
+      opacity: 0;
+      max-height: 0;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    .grouping.flows .items {
+      padding: 0;
+    }
+
+    .grouping.messages .items {
+      display: flex;
+      flex-direction: column;
+      margin: 0em 0.75em;
+    }
+
+    .grouping.verbose.expanded .items {
+      transition: max-height var(--transition-speed) ease-in-out,
+        opacity var(--transition-speed) ease-in-out;
+      opacity: 1;
+      max-height: 1000px;
+      padding: 1em 1em;
+    }
+
+    .grouping.verbose.expanded {
+      border-top: 1px solid #f3f3f3;
+      border-bottom: 1px solid #f3f3f3;
     }
 
     .grouping.verbose.expanded,
@@ -30,7 +62,6 @@ export const getEventStyles = () => {
     }
 
     .grouping.verbose temba-icon {
-      margin-top: 3px;
     }
 
     .grouping.verbose > .event,
@@ -44,50 +75,37 @@ export const getEventStyles = () => {
     }
 
     .grouping.verbose .attn {
-      color: #fff;
+      color: #666;
     }
 
     .event-count {
       position: relative;
-      top: -1.2em;
       font-size: 0.8em;
       text-align: center;
-      border: 2px solid #f9f9f9;
-      background: #fff;
       margin: 0 auto;
       display: table;
       padding: 3px 10px;
       font-weight: 400;
-      color: #777;
-      border-radius: var(--curvature);
+      color: #999;
       cursor: pointer;
-      min-width: 0%;
+      width: 100%;
       opacity: 1;
-      transition: all var(--transition-speed) ease-in, opacity 0.1ms,
-        margin-top 0ms;
-    }
-
-    .closing .grouping-close-button {
-      opacity: 0 !important;
-      transition: none !important;
-    }
-
-    .event-count {
       z-index: 1;
-      margin-bottom: 1em;
+    }
+
+    .event-count temba-icon {
+      display: inline-block;
+      position: absolute;
+      right: 5px;
+      top: 5px;
     }
 
     .event-count:hover {
-      padding: 3px 10px;
-      min-width: 50%;
-      background: #f9f9f9;
-      color: #333;
+      color: var(--color-link-primary-hover);
     }
 
     .expanded .event-count {
-      opacity: 0;
-      margin-top: -42px;
-      z-index: 0;
+      padding: 0;
       pointer-events: none;
     }
 
@@ -115,54 +133,18 @@ export const getEventStyles = () => {
       word-wrap: break-word;
     }
 
-    .grouping.verbose.closing {
-      opacity: 0 !important;
-      padding: 0 !important;
-      background: #f9f9f9 !important;
-      max-height: 1px !important;
-      border-top: 1px solid #f9f9f9 !important;
-      padding-top: 0 !important;
-      padding-bottom: 0 !important;
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-    }
-
-    .grouping.verbose.closing .event,
-    .grouping.verbose.closing pre {
-      max-height: 0px;
-    }
-
-    .grouping.verbose.expanded {
-      transition: all var(--transition-speed)
-          cubic-bezier(0.68, -0.55, 0.265, 1.05),
-        color 0.1ms;
-      background: #444;
-      color: #efefef;
-      max-height: 1000px;
-      border-top: 1px solid #f1f1f1;
-      padding: 2em;
-      margin-left: 1em;
-      margin-right: 1em;
-      border-radius: var(--curvature);
-      padding-bottom: 1em;
-      box-shadow: inset 0px 11px 4px -15px #000, inset 0px -11px 4px -15px #000;
-    }
-
     .grouping.verbose.expanded .event,
     .grouping.verbose.expanded pre {
       max-height: 500px;
-      margin-bottom: 0.5em;
       opacity: 1;
-      transition: all var(--transition-speed) ease-in-out;
     }
 
     .grouping-close-button {
+      position: relative;
+      display: inline-block;
       opacity: 0;
       float: right;
-      margin-top: -1em !important;
-      margin-right: -1em !important;
-      fill: #f2f2f2;
-      transition: opacity var(--transition-speed) ease-in;
+      --icon-color: #666;
     }
 
     .grouping.verbose.expanded:hover .grouping-close-button {
@@ -176,7 +158,7 @@ export const getEventStyles = () => {
     }
 
     .event {
-      margin-bottom: 1em;
+      margin: 0.25em 0.5em;
       border-radius: var(--curvature);
       flex-grow: 1;
     }
@@ -314,7 +296,6 @@ export const getEventStyles = () => {
 
     .flow_exited temba-icon,
     .flow_entered temba-icon {
-      margin-top: 5px;
     }
 
     .event {
@@ -333,6 +314,7 @@ export const getEventStyles = () => {
       font-size: 80%;
       color: rgba(0, 0, 0, 0.6);
       padding: 6px 3px;
+      margin-bottom: 0.5em;
     }
 
     .msg-summary temba-icon[name='log'] {
@@ -393,7 +375,6 @@ export const getEventStyles = () => {
     }
 
     temba-icon[name='check'] {
-      margin-top: 3px;
     }
 
     .attn {
@@ -452,6 +433,10 @@ export const getEventStyles = () => {
     .assigned .attn {
       color: #777;
     }
+
+    .attachments {
+      margin-top: 1em;
+    }
   `;
 };
 
@@ -461,7 +446,6 @@ export interface EventGroup {
   type: string;
   events: ContactEvent[];
   open: boolean;
-  closing: boolean;
 }
 
 export enum Events {
@@ -513,6 +497,8 @@ export interface ContactLanguageChangedEvent extends ContactEvent {
 export interface MsgEvent extends ContactEvent {
   msg: Msg;
   status: string;
+  failed_reason?: string;
+  failed_reason_display?: string;
   logs_url: string;
   msg_type: string;
   recipient_count?: number;
@@ -597,7 +583,7 @@ export interface AirtimeTransferredEvent extends ContactEvent {
 
 export type CallStartedEvent = ContactEvent;
 export interface CampaignFiredEvent extends ContactEvent {
-  campaign: { id: number; name: string };
+  campaign: { uuid: string; id: number; name: string };
   campaign_event: {
     id: number;
     offset_display: string;
@@ -689,12 +675,44 @@ export const renderAttachment = (attachment: string): TemplateResult => {
     inner = html`<div class="linked" onclick="goto(event)" href="${url}"><img src="${url}" style="width:100%;height:auto;display:block"></img></a>`;
   } else if (ext === 'pdf') {
     return html`<div
-    style="width:100%;height:300px;border-radius:var(--curvature);box-shadow:0px 0px 10px -1px rgb(160 160 160);overflow:hidden"
-  ><embed src="${url}#view=Fit" type="application/pdf" frameBorder="0" scrolling="auto" height="100%" width="100%"></embed></div>`;
+      style="width:100%;height:300px;border-radius:var(--curvature);box-shadow:0px 0px 12px 0px rgba(0,0,0,.1), 0px 0px 2px 0px rgba(0,0,0,.15);overflow:hidden"
+    ><embed src="${url}#view=Fit" type="application/pdf" frameBorder="0" scrolling="auto" height="100%" width="100%"></embed></div>`;
   } else if (mediaType === 'video') {
-    return html`<video max-width="400px" height="auto" controls="controls">
+    return html`<video
+      style="border-radius:var(--curvature);box-shadow:0px 0px 12px 0px rgba(0,0,0,.1), 0px 0px 2px 0px rgba(0,0,0,.15);max-width:400px"
+      height="auto"
+      controls
+    >
       <source src="${url}" type="video/mp4" />
     </video> `;
+  } else if (mediaType === 'audio') {
+    return html`<audio
+      style="border-radius: 99px; box-shadow:0px 0px 12px 0px rgba(0,0,0,.1), 0px 0px 2px 0px rgba(0,0,0,.15);"
+      src="${url}"
+      type="${attType}"
+      controls
+    >
+      <a target="_" href="${url}">${url}</a>
+    </audio>`;
+  } else if (attType === 'geo') {
+    const [lat, long] = url.split(',');
+    const latFloat = parseFloat(lat);
+    const longFloat = parseFloat(long);
+    const geo = `${lat}000000%2C${long}000000`;
+
+    return html` <iframe
+      style="border-radius: var(--curvature);box-shadow:0px 0px 12px 0px rgba(0,0,0,.1), 0px 0px 2px 0px rgba(0,0,0,.15);"
+      width="300"
+      height="300"
+      frameborder="0"
+      scrolling="no"
+      marginheight="0"
+      marginwidth="0"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=${longFloat -
+      0.005}000000%2C${latFloat - 0.005}%2C${longFloat +
+      0.005}000000%2C${latFloat +
+      0.005}000000&amp;layer=mapnik&amp;marker=${geo}"
+    ></iframe>`;
   } else {
     return html`<div style="display:flex">
       <temba-icon name="download"></temba-icon>
@@ -703,7 +721,7 @@ export const renderAttachment = (attachment: string): TemplateResult => {
   }
 
   return html`<div
-    style="width:100%;max-width:300px;border-radius:var(--curvature); box-shadow:0px 0px 10px -1px rgb(160 160 160);overflow:hidden"
+    style="width:100%;max-width:300px;border-radius:var(--curvature); box-shadow:0px 0px 6px 0px rgba(0,0,0,.15);overflow:hidden"
   >
     ${inner}
   </div>`;
@@ -714,8 +732,45 @@ export const renderMsgEvent = (
   agent: string
 ): TemplateResult => {
   const isInbound = event.type === Events.MESSAGE_RECEIVED;
-  const isError = event.status === 'E' || event.status === 'F';
-  const msg = html`<div style="display:flex;align-items:flex-start">
+  const isError = event.status === 'E';
+  const isFailure = event.status === 'F';
+
+  // summary items which appear under the message bubble
+  const summary: TemplateResult[] = [];
+  if (event.logs_url) {
+    summary.push(html` <div class="icon-link">
+      <temba-icon
+        onclick="goto(event)"
+        href="${event.logs_url}"
+        name="log"
+        class="${isError || isFailure ? 'error' : ''}"
+      ></temba-icon>
+    </div>`);
+  } else if (isError) {
+    summary.push(
+      html`<temba-icon
+        title="Message delivery error"
+        name="alert-triangle"
+      ></temba-icon>`
+    );
+  } else if (isFailure) {
+    summary.push(
+      html`<temba-icon
+        title="Message delivery failure: ${event.failed_reason_display}"
+        name="alert-triangle"
+      ></temba-icon>`
+    );
+  }
+  if (event.recipient_count > 1) {
+    summary.push(html`<temba-icon size="1" name="megaphone"></temba-icon>
+      <div class="recipients">${event.recipient_count} contacts</div>
+      <div class="separator">•</div>`);
+  }
+  summary.push(
+    html`<div class="time">${timeSince(new Date(event.created_on))}</div>`
+  );
+
+  return html`<div style="display:flex;align-items:flex-start">
     <div style="display:flex;flex-direction:column">
       ${event.msg.text ? html`<div class="msg">${event.msg.text}</div>` : null}
       ${event.msg.attachments
@@ -733,29 +788,7 @@ export const renderMsgEvent = (
         style="flex-direction:row${isInbound ? '-reverse' : ''}"
       >
         <div style="flex-grow:1"></div>
-        ${event.logs_url
-          ? html`
-              <div class="icon-link">
-                <temba-icon
-                  onclick="goto(event)"
-                  href="${event.logs_url}"
-                  name="log"
-                  class="${isError ? 'error' : ''}"
-                ></temba-icon>
-              </div>
-            `
-          : isError
-          ? html`<temba-icon
-              title="Message delivery error"
-              name="alert-triangle"
-            ></temba-icon>`
-          : null}
-        ${event.recipient_count > 1
-          ? html`<temba-icon size="1" name="megaphone"></temba-icon>
-              <div class="recipients">${event.recipient_count} contacts</div>
-              <div class="separator">•</div>`
-          : null}
-        <div class="time">${timeSince(new Date(event.created_on))}</div>
+        ${summary}
       </div>
     </div>
 
@@ -769,7 +802,6 @@ export const renderMsgEvent = (
         </div>`
       : null}
   </div>`;
-  return msg;
 };
 
 export const renderFlowEvent = (event: FlowEvent): TemplateResult => {
@@ -1082,7 +1114,9 @@ export const renderContactLanguageChangedEvent = (
   event: ContactLanguageChangedEvent
 ): TemplateResult => {
   return html`<temba-icon name="contact"></temba-icon>
-    <div class="description">Language updated to ${event.language}</div>`;
+    <div class="description">
+      Language updated to <span class="attn">${event.language}</span>
+    </div>`;
 };
 
 export const renderChannelEvent = (event: ChannelEvent): TemplateResult => {
@@ -1129,14 +1163,15 @@ export const renderCampaignFiredEvent = (
       <span
         class="linked"
         onclick="goto(event)"
-        href="/campaign/read/${event.campaign.id}"
+        href="/campaign/read/${event.campaign.uuid}"
         >${event.campaign.name}</span
       >
       ${event.fired_result === 'S' ? 'skipped' : 'triggered'}
       <span
         class="linked"
         onclick="goto(event)"
-        href="/campaignevent/read/${event.campaign_event.id}"
+        href="/campaignevent/read/${event.campaign.uuid}/${event.campaign_event
+          .id}"
       >
         ${event.campaign_event.offset_display}
         ${event.campaign_event.relative_to.name}</span
