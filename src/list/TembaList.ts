@@ -19,7 +19,7 @@ export class TembaList extends RapidElement {
   @property({ type: String })
   endpoint: string;
 
-  @property({ type: Object, attribute: false })
+  @property({ type: String })
   nextSelection: any;
 
   @property({ type: Number })
@@ -28,8 +28,14 @@ export class TembaList extends RapidElement {
   @property({ type: String })
   valueKey = 'id';
 
+  @property({ type: String })
+  value: string;
+
   @property({ type: Boolean })
   loading = false;
+
+  @property({ type: Boolean })
+  collapsed: boolean;
 
   @property({ attribute: false })
   getNextRefresh: (firstOption: any) => any;
@@ -57,6 +63,9 @@ export class TembaList extends RapidElement {
   clearRefreshTimeout: any;
   pending: AbortController[] = [];
 
+  // used for testing only
+  preserve: boolean;
+
   // http promise to monitor for completeness
   public httpComplete: Promise<void>;
 
@@ -70,8 +79,15 @@ export class TembaList extends RapidElement {
 
       temba-options {
         display: block;
-        height: 100%;
         width: 100%;
+        flex-grow: 1;
+      }
+
+      .wrapper {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        align-items: center;
       }
     `;
   }
@@ -79,10 +95,6 @@ export class TembaList extends RapidElement {
   constructor() {
     super();
     this.handleSelection.bind(this);
-
-    setInterval(() => {
-      this.refreshKey = 'default_' + new Date().getTime();
-    }, DEFAULT_REFRESH);
   }
 
   private reset(): void {
@@ -93,13 +105,29 @@ export class TembaList extends RapidElement {
     this.items = [];
   }
 
+  refreshInterval = null;
+
+  public connectedCallback() {
+    super.connectedCallback();
+    this.refreshInterval = setInterval(() => {
+      this.refreshKey = 'default_' + new Date().getTime();
+    }, DEFAULT_REFRESH);
+  }
+
+  public disconnectedCallback() {
+    clearInterval(this.refreshInterval);
+  }
+
   public updated(changedProperties: Map<string, any>) {
     super.updated(changedProperties);
 
     if (changedProperties.has('endpoint') && this.endpoint) {
-      this.reset();
+      // if our tests aren't preserving our properties, reset
+      if (!this.preserve) {
+        this.reset();
+        this.loading = true;
+      }
 
-      this.loading = true;
       this.httpComplete = this.fetchItems();
     }
 
@@ -107,7 +135,7 @@ export class TembaList extends RapidElement {
       changedProperties.has('refreshKey') &&
       !changedProperties.has('endpoint')
     ) {
-      this.fetchItems();
+      this.refreshTop();
     }
 
     if (changedProperties.has('mostRecentItem')) {
@@ -117,10 +145,15 @@ export class TembaList extends RapidElement {
     if (changedProperties.has('cursorIndex')) {
       if (this.cursorIndex > -1) {
         this.selected = this.items[this.cursorIndex];
-        const evt = new Event('change', { bubbles: true });
-        this.dispatchEvent(evt);
+        this.handleSelected(this.selected);
       }
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public handleSelected(selected: any) {
+    const evt = new Event('change', { bubbles: true });
+    this.dispatchEvent(evt);
   }
 
   private getValue(obj: any): any {
@@ -147,6 +180,26 @@ export class TembaList extends RapidElement {
     this.dispatchEvent(evt);
   }
 
+  public getItemIndex(value: string) {
+    return this.items.findIndex(option => this.getValue(option) === value);
+  }
+
+  public removeItem(value: string) {
+    const index = this.getItemIndex(value);
+    this.items.splice(index, 1);
+    this.items = [...this.items];
+
+    // if we were at the end, move us down
+    this.cursorIndex = Math.max(
+      0,
+      Math.min(this.items.length - 1, this.cursorIndex - 1)
+    );
+
+    // request a change even if it is the same, the item is different
+    this.requestUpdate('cursorIndex');
+    this.requestUpdate('items');
+  }
+
   public getSelection(): any {
     return this.selected;
   }
@@ -160,6 +213,77 @@ export class TembaList extends RapidElement {
     this.nextSelection = nextSelection;
   }
 
+  public getRefreshEndpoint() {
+    return this.endpoint;
+  }
+
+  /**
+   * Refreshes the first page, updating any found items in our list
+   */
+  private async refreshTop(): Promise<void> {
+    // cancel any outstanding requests
+    while (this.pending.length > 0) {
+      const pending = this.pending.pop();
+      pending.abort();
+    }
+
+    const controller = new AbortController();
+    this.pending.push(controller);
+
+    const prevItem = this.items[this.cursorIndex];
+
+    try {
+      const page = await fetchResultsPage(
+        this.getRefreshEndpoint(),
+        controller
+      );
+
+      const items = [...this.items];
+      // remove any dupes already in our list
+      if (page.results) {
+        page.results.forEach((newOption: any) => {
+          if (this.sanitizeOption) {
+            this.sanitizeOption(newOption);
+          }
+          const newValue = this.getValue(newOption);
+          const removeIndex = items.findIndex(
+            option => this.getValue(option) === newValue
+          );
+
+          if (removeIndex > -1) {
+            items.splice(removeIndex, 1);
+          }
+        });
+
+        // insert our new items at the front
+        const newItems = [...page.results.reverse(), ...items];
+
+        if (prevItem) {
+          const newItem = newItems[this.cursorIndex];
+          const prevValue = this.getValue(prevItem);
+          if (prevValue !== this.getValue(newItem)) {
+            const newIndex = newItems.findIndex(
+              option => this.getValue(option) === prevValue
+            );
+            this.cursorIndex = newIndex;
+
+            // make sure our focused item is visible
+            window.setTimeout(() => {
+              const option = this.shadowRoot
+                .querySelector('temba-options')
+                .shadowRoot.querySelector('.option.focused');
+              option.scrollIntoView({ block: 'end', inline: 'nearest' });
+            }, 0);
+          }
+        }
+
+        this.items = newItems;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   private async fetchItems(): Promise<void> {
     // cancel any outstanding requests
     while (this.pending.length > 0) {
@@ -169,7 +293,7 @@ export class TembaList extends RapidElement {
 
     let endpoint = this.endpoint;
     let pagesToFetch = this.pages || 1;
-    let pages = this.pages | 0;
+    let pages = 0;
     let nextPage = null;
 
     let fetchedItems: any[] = [];
@@ -192,7 +316,7 @@ export class TembaList extends RapidElement {
 
         // save our next pages
         nextPage = page.next;
-        endpoint = this.nextPage;
+        endpoint = nextPage;
         pagesToFetch--;
         pages++;
       } catch (error) {
@@ -203,7 +327,6 @@ export class TembaList extends RapidElement {
 
       this.nextPage = nextPage;
     }
-
     this.pages = pages;
 
     const topItem = fetchedItems[0];
@@ -227,10 +350,20 @@ export class TembaList extends RapidElement {
         return this.getValue(item) === this.getValue(this.selected);
       });
 
+      // old selection is in the new fetch
       if (index > -1) {
         this.cursorIndex = index;
-      } else if (this.cursorIndex === -1) {
-        this.cursorIndex = 0;
+      }
+      // old selection is missing from the new fetch
+      else {
+        // if our index didn't change, our item still did, fire change
+        if (this.cursorIndex === 0) {
+          this.requestUpdate('cursorIndex');
+        }
+        // otherwise select the first item
+        else {
+          this.cursorIndex = 0;
+        }
       }
     }
 
@@ -248,13 +381,20 @@ export class TembaList extends RapidElement {
       }
     }
 
-    this.requestUpdate('cursorIndex');
+    // TODO: Not sure why this is needed
+    // this.requestUpdate('cursorIndex');
+
+    if (this.value) {
+      this.setSelection(this.value);
+      this.value = null;
+    }
 
     return Promise.resolve();
   }
 
   private handleScrollThreshold() {
-    if (this.nextPage) {
+    if (this.nextPage && !this.loading) {
+      this.loading = true;
       fetchResultsPage(this.nextPage).then((page: ResultsPage) => {
         if (this.sanitizeOption) {
           page.results.forEach(this.sanitizeOption);
@@ -263,6 +403,7 @@ export class TembaList extends RapidElement {
         this.items = [...this.items, ...page.results];
         this.nextPage = page.next;
         this.pages++;
+        this.loading = false;
       });
     }
   }
@@ -272,19 +413,27 @@ export class TembaList extends RapidElement {
 
     this.selected = selected;
     this.cursorIndex = index;
+
+    event.stopPropagation();
+    event.preventDefault();
   }
 
   public render(): TemplateResult {
-    return html`<temba-options
-      ?visible=${true}
-      ?block=${true}
-      ?loading=${this.loading}
-      .renderOption=${this.renderOption}
-      .renderOptionDetail=${this.renderOptionDetail}
-      @temba-scroll-threshold=${this.handleScrollThreshold}
-      @temba-selection=${this.handleSelection.bind(this)}
-      .options=${this.items}
-      .cursorIndex=${this.cursorIndex}
-    ></temba-options>`;
+    return html`<div class="wrapper">
+      <temba-options
+        ?visible=${true}
+        ?block=${true}
+        ?collapsed=${this.collapsed}
+        ?loading=${this.loading}
+        .renderOption=${this.renderOption}
+        .renderOptionDetail=${this.renderOptionDetail}
+        @temba-scroll-threshold=${this.handleScrollThreshold}
+        @temba-selection=${this.handleSelection.bind(this)}
+        .options=${this.items}
+        .cursorIndex=${this.cursorIndex}
+      >
+        <slot></slot>
+      </temba-options>
+    </div>`;
   }
 }

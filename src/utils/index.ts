@@ -474,6 +474,7 @@ export const isDate = (value: string): boolean => {
   return DATE_FORMAT.test(value);
 };
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 export const debounce = (fn: Function, millis: number, immediate = false) => {
   let timeout: any;
   return function (...args: any) {
@@ -493,6 +494,7 @@ export const debounce = (fn: Function, millis: number, immediate = false) => {
   };
 };
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 export const throttle = (fn: Function, millis: number) => {
   let ready = true;
   return function (...args: any) {
@@ -562,3 +564,39 @@ export const oxfordNamed = (items: NamedObject[], joiner = 'and'): any => {
 export const getDialog = (button: Button): Dialog => {
   return (button.getRootNode() as ShadowRoot).host as Dialog;
 };
+
+export const setCookie = (name: string, value: any, path = undefined) => {
+  if (!path) {
+    // default path is the first word in the url
+    const url = document.location.pathname;
+    path = url.substring(0, url.indexOf('/', 1));
+  }
+  const now = new Date();
+  now.setTime(now.getTime() + 60 * 1000 * 60 * 24 * 30);
+  document.cookie = `${name}=${value};expires=${now.toUTCString()};path=${path}`;
+};
+
+export const getCookie = (name: string) => {
+  let cookieValue = null;
+  if (document.cookie && document.cookie != '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      // Does this cookie string begin with the name we want?
+      if (cookie.substring(0, name.length + 1) == name + '=') {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+};
+
+export const getCookieBoolean = (name: string) => {
+  return (getCookie(name) || '') === 'true';
+};
+
+export enum COOKIE_KEYS {
+  MENU_COLLAPSED = 'menu-collapsed',
+  TICKET_SHOW_DETAILS = 'tickets.show-details',
+}

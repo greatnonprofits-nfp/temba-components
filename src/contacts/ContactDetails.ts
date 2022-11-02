@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/camelcase */
 import { css, html, property, TemplateResult } from 'lit-element';
 import { Contact, Group, Ticket } from '../interfaces';
 import { RapidElement } from '../RapidElement';
@@ -10,16 +9,26 @@ export class ContactDetails extends RapidElement {
   static get styles() {
     return css`
       :host {
-        box-shadow: inset 14px 0 7px -14px rgba(0, 0, 0, 0.15);
         background: #f9f9f9;
         display: block;
         height: 100%;
         position: relative;
+        overflow: hidden;
+        -webkit-mask-image: -webkit-radial-gradient(white, black);
+      }
+
+      .contact {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        height: 100%;
       }
 
       .wrapper {
-        padding-right: 3.5em;
-        padding-left: 1em;
+        padding: 0em 1em;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
       }
 
       a {
@@ -31,9 +40,9 @@ export class ContactDetails extends RapidElement {
       }
 
       .contact > .name {
-        font-size: 18px;
+        font-size: 1.2em;
         font-weight: 400;
-        padding: 0.75em;
+        padding: 0.5em 0.75em;
         padding-right: 1em;
       }
 
@@ -63,10 +72,16 @@ export class ContactDetails extends RapidElement {
         letter-spacing: 0.025em;
         white-space: nowrap;
         text-align: center;
-        margin-right: 6px;
-        margin-top: 6px;
         user-select: none;
         -webkit-user-select: none;
+        margin-right: 0.75em;
+        margin-bottom: 0.75em;
+      }
+
+      .groups {
+        margin-top: 0.55em;
+        padding: 0px 0.75em;
+        margin-bottom: 0.3em;
       }
 
       .start-flow {
@@ -75,17 +90,23 @@ export class ContactDetails extends RapidElement {
       .actions {
         margin-top: 16px;
         border: 0px solid #ddd;
-        border-radius: 0.5em;
+        border-radius: var(--curvature);
         padding: 0px;
       }
 
       .fields-wrapper {
-        margin-top: 1em;
         background: #fff;
-        border-radius: 0.5em;
         overflow: hidden;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
-          0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        margin: 0em -1em;
+
+        display: flex;
+        align-items: stretch;
+        flex-direction: column;
+        transition: all 300ms linear;
+      }
+
+      .fields-wrapper.expanded {
+        flex-grow: 2;
       }
 
       .body-wrapper {
@@ -99,14 +120,16 @@ export class ContactDetails extends RapidElement {
 
       .fields {
         padding: 1em;
-        max-height: 200px;
-        border-radius: 0.5em;
         overflow-y: auto;
-        -webkit-mask-image: -webkit-radial-gradient(white, black);
+      }
+
+      .fields-wrapper.expanded .fields {
+        flex-grow: 1;
+        height: 0px;
       }
 
       .field {
-        border-radius: 0.5em;
+        border-radius: var(--curvature);
 
         display: flex;
         flex-direction: column;
@@ -140,7 +163,7 @@ export class ContactDetails extends RapidElement {
   @property({ type: String })
   uuid: string;
 
-  @property({ attribute: false, type: Object })
+  @property({ type: Object })
   contact: Contact;
 
   @property({ attribute: false })
@@ -170,14 +193,10 @@ export class ContactDetails extends RapidElement {
 
   public updated(changes: Map<string, any>) {
     super.updated(changes);
-    if (changes.has('endpoint')) {
-      this.flow = null;
-      this.expandFields = false;
 
+    if (changes.has('contact')) {
       const store: Store = document.querySelector('temba-store');
-
-      fetchContact(this.endpoint).then((contact: Contact) => {
-        this.contact = contact;
+      if (this.contact && this.contact.fields) {
         this.fields = Object.keys(this.contact.fields).filter((key: string) => {
           const hasField = !!this.contact.fields[key];
           return hasField && store.getContactField(key).pinned;
@@ -196,6 +215,14 @@ export class ContactDetails extends RapidElement {
           }
           return a.name.localeCompare(b.name);
         });
+      }
+    }
+
+    if (changes.has('endpoint')) {
+      this.flow = null;
+      this.expandFields = false;
+      fetchContact(this.endpoint).then((contact: Contact) => {
+        this.contact = contact;
       });
     }
   }
@@ -204,12 +231,8 @@ export class ContactDetails extends RapidElement {
     this.flow = evt.detail.selected as any;
   }
 
-  private handleExpandFields(): void {
-    this.expandFields = true;
-  }
-
-  private handleHideFields(): void {
-    this.expandFields = false;
+  private handleToggleFields(): void {
+    this.expandFields = !this.expandFields;
   }
 
   private handleExpandBody(): void {
@@ -235,23 +258,24 @@ export class ContactDetails extends RapidElement {
 
     if (this.contact) {
       return html`<div class="contact">
-        <div class="name">${this.name || this.contact.name}</div>
+        ${this.ticket
+          ? html`<div class="name">${this.name || this.contact.name}</div>`
+          : null}
+        ${this.showGroups && !this.ticket
+          ? html`<div class="groups">
+              ${this.contact.groups.map((group: Group) => {
+                return html`<a href="/contacts/groups/${group.uuid}/"
+                  ><div class="group-label" style="cursor:pointer">
+                    ${group.is_dynamic
+                      ? html`<temba-icon name="atom"></temba-icon>`
+                      : null}${group.name}
+                  </div></a
+                >`;
+              })}
+            </div>`
+          : html``}
+
         <div class="wrapper">
-          ${this.showGroups
-            ? html`<div>
-                ${this.contact.groups.map((group: Group) => {
-                  return html`<a
-                    href="/contact/filter/${group.uuid}/"
-                    target="_"
-                    ><div class="group-label" style="cursor:pointer">
-                      ${group.is_dynamic
-                        ? html`<temba-icon name="atom"></temba-icon>`
-                        : null}${group.name}
-                    </div></a
-                  >`;
-                })}
-              </div>`
-            : html``}
           ${body
             ? html`<div class="body-wrapper">
                 <div class="body">${body}</div>
@@ -269,55 +293,44 @@ export class ContactDetails extends RapidElement {
               </div>`
             : null}
           ${this.fields.length > 0
-            ? html` <div class="fields-wrapper">
-                <div class="fields">
-                  ${this.fields
-                    .slice(0, this.expandFields ? 255 : 3)
-                    .map((key: string) => {
-                      let value = this.contact.fields[key];
-                      if (value) {
-                        if (isDate(value)) {
-                          value = timeSince(new Date(value));
+            ? html` <div
+                  class="fields-wrapper ${this.expandFields ? 'expanded' : ''}"
+                >
+                  <div class="fields">
+                    ${this.fields
+                      .slice(0, this.expandFields ? 255 : 3)
+                      .map((key: string) => {
+                        let value = this.contact.fields[key];
+                        if (value) {
+                          if (isDate(value)) {
+                            value = timeSince(new Date(value));
+                          }
+                          return html`<div class="field">
+                            <div class="name">
+                              ${store.getContactField(key).label}
+                            </div>
+                            <div class="value">${value}</div>
+                          </div>`;
                         }
-                        return html`<div class="field">
-                          <div class="name">
-                            ${store.getContactField(key).label}
-                          </div>
-                          <div class="value">${value}</div>
-                        </div>`;
-                      }
-                    })}
-
-                  <div class="field-links">
-                    ${this.fields.length > 3
-                      ? !this.expandFields
-                        ? html`<a href="#" @click="${this.handleExpandFields}"
-                            >more</a
-                          >`
-                        : html`<a href="#" @click="${this.handleHideFields}"
-                            >less</a
-                          >`
-                      : null}
+                      })}
                   </div>
                 </div>
-              </div>`
-            : null}
-
-          <div class="actions">
-            ${this.showGroups
-              ? html`
-                  <div class="start-flow">
-                    <temba-select
-                      endpoint="/api/v2/flows.json?archived=false"
-                      placeholder="Start Flow"
-                      flavor="small"
-                      .values=${this.flow ? [this.flow] : []}
-                      @temba-selection=${this.handleFlowChanged}
-                    ></temba-select>
+                <div style="display:flex;">
+                  <div style="flex-grow:1"></div>
+                  <div style="margin-right:1em;margin-top:-0.5em">
+                    ${this.fields.length > 3
+                      ? html`<temba-icon
+                          name="chevrons-${this.expandFields ? 'up' : 'down'}"
+                          @click=${this.handleToggleFields}
+                          animateChange="spin"
+                          circled
+                          clickable
+                        ></temba-icon>`
+                      : null}
                   </div>
-                `
-              : null}
-          </div>
+                </div>`
+            : null}
+          <div style="flex-grow:1"></div>
         </div>
       </div>`;
     }

@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { TemplateResult, html, css, property } from 'lit-element';
-import { getUrl, getClasses, fetchResults, WebResponse } from '../utils';
+import {
+  getUrl,
+  getClasses,
+  fetchResults,
+  WebResponse,
+  postJSON,
+} from '../utils';
 import '../options/Options';
 import { EventHandler } from '../RapidElement';
 import { FormElement } from '../FormElement';
@@ -400,7 +406,8 @@ export class Select extends FormElement {
 
   @property({ attribute: false })
   isMatch: (option: any, q: string) => boolean = (option: any, q: string) => {
-    return this.getName(option).toLowerCase().indexOf(q) > -1;
+    const name = this.getName(option) || '';
+    return name.toLowerCase().indexOf(q) > -1;
   };
 
   @property({ attribute: false })
@@ -497,6 +504,17 @@ export class Select extends FormElement {
       }
     }
 
+    // if they set an inital value, look through our static options for it
+    if (changedProperties.has('value') && this.value) {
+      const existing = this.staticOptions.find(option => {
+        return this.getValue(option) === this.value;
+      });
+
+      if (existing) {
+        this.setValue(existing);
+      }
+    }
+
     // default to the first option if we don't have a placeholder
     if (
       this.values.length === 0 &&
@@ -507,13 +525,11 @@ export class Select extends FormElement {
     }
   }
 
-  public handleOptionSelection(event: CustomEvent) {
-    const selected = event.detail.selected;
-
+  private setSelectedOption(option: any) {
     if (this.multi) {
-      this.addValue(selected);
+      this.addValue(option);
     } else {
-      this.setValue(selected);
+      this.setValue(option);
     }
 
     if (!this.multi || !this.searchable) {
@@ -528,6 +544,24 @@ export class Select extends FormElement {
     this.selectedIndex = -1;
 
     this.fireEvent('change');
+  }
+
+  public handleOptionSelection(event: CustomEvent) {
+    const selected = event.detail.selected;
+    // check if we should post it
+    if (selected.post && this.endpoint) {
+      postJSON(this.endpoint, selected).then(response => {
+        if (response.status >= 200 && response.status < 300) {
+          this.setSelectedOption(response.json);
+          this.lruCache = flru(20);
+        } else {
+          // TODO: find a way to share inline errors
+          this.blur();
+        }
+      });
+    } else {
+      this.setSelectedOption(selected);
+    }
   }
 
   private handleExpressionSelection(evt: CustomEvent) {
@@ -752,9 +786,6 @@ export class Select extends FormElement {
           return;
         }
 
-        // const CancelToken = axios.CancelToken;
-        // this.cancelToken = CancelToken.source();
-
         // if we are searchable, but doing it locally, fetch all the options
         if (this.searchable && !this.queryParam) {
           fetchResults(url).then((results: any) => {
@@ -772,8 +803,6 @@ export class Select extends FormElement {
             }
           });
         } else {
-          // this.cancelToken.token
-
           this.httpComplete = getUrl(url)
             .then((response: WebResponse) => {
               const results = this.getOptions(response).filter(
@@ -995,7 +1024,7 @@ export class Select extends FormElement {
 
           if (
             child.getAttribute('selected') !== null ||
-            (!this.placeholder && this.values.length === 0)
+            this.getValue(option) == this.value
           ) {
             if (this.getAttribute('multi') !== null) {
               this.addValue(option);
@@ -1003,6 +1032,25 @@ export class Select extends FormElement {
               this.setValue(option);
             }
           }
+        }
+      }
+
+      if (this.values.length === 0 && !this.placeholder) {
+        if (this.staticOptions.length == 0 && this.endpoint) {
+          // see if we need to auto select the first item but need to fetch it
+          fetchResults(this.endpoint).then((results: any) => {
+            if (results.length > 0) {
+              this.setValue(results[0]);
+              this.fireEvent('change');
+            }
+          });
+        } else {
+          if (this.getAttribute('multi') !== null) {
+            this.addValue(this.staticOptions[0]);
+          } else {
+            this.setValue(this.staticOptions[0]);
+          }
+          this.fireEvent('change');
         }
       }
 

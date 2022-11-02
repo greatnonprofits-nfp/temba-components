@@ -244,10 +244,6 @@ export class Modax extends RapidElement {
     );
   }
 
-  public updateLocation(location: string): void {
-    this.ownerDocument.location.href = location;
-  }
-
   public submit(): void {
     this.submitting = true;
     const form = this.shadowRoot.querySelector('form');
@@ -278,8 +274,9 @@ export class Modax extends RapidElement {
               }, 0);
             } else {
               this.open = false; // close modal before redirection (needed to close modal on file download)
-              this.updateLocation(redirect);
-              this.open = false;
+              this.fireCustomEvent(CustomEventType.Redirected, {
+                url: redirect,
+              });
             }
           } else {
             // if we set the body, update our submit button
@@ -290,7 +287,7 @@ export class Modax extends RapidElement {
         }, 1000);
       })
       .catch(error => {
-        console.log(error);
+        console.error(error);
       });
   }
 
@@ -305,6 +302,7 @@ export class Modax extends RapidElement {
     if (button.name === (this.cancelName || 'Cancel')) {
       this.open = false;
       this.fetching = false;
+      this.cancelName = undefined;
       // this.cancelToken.cancel();
     }
   }

@@ -1,8 +1,10 @@
 export interface User {
-  id: number;
+  id?: number;
   first_name?: string;
   last_name?: string;
   email?: string;
+  role?: string;
+  created_on?: string;
 }
 
 export interface Ticket {
@@ -14,6 +16,7 @@ export interface Ticket {
   status: string;
   contact: ObjectReference;
   ticketer: ObjectReference;
+  topic: ObjectReference;
   assignee?: User;
 }
 
@@ -27,6 +30,7 @@ export interface Msg {
   direction: string;
   type: string;
   created_by?: User;
+  attachments: string[];
 }
 
 export interface ObjectReference {
@@ -92,7 +96,9 @@ export interface Contact {
     uuid: string;
     subject: string;
     closed_on?: string;
+    last_activity_on: string;
     assignee?: User;
+    topic?: ObjectReference;
   };
 }
 
@@ -169,4 +175,6 @@ export enum CustomEventType {
   ContentChanged = 'temba-content-changed',
   ContextChanged = 'temba-context-changed',
   Submitted = 'temba-submitted',
+  Redirected = 'temba-redirected',
+  NoPath = 'temba-no-path',
 }

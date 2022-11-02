@@ -2,6 +2,9 @@ import { property, LitElement, TemplateResult, html, css } from 'lit-element';
 
 import { getClasses } from '../utils';
 
+// for cache busting, increase whenever the icon set changes
+const ICON_VERSION = 4;
+
 export class VectorIcon extends LitElement {
   @property({ type: String })
   name: string;
@@ -15,6 +18,9 @@ export class VectorIcon extends LitElement {
 
   @property({ type: Boolean })
   clickable: boolean;
+
+  @property({ type: Boolean })
+  circled: boolean;
 
   @property({ type: String })
   animateChange: string;
@@ -44,6 +50,7 @@ export class VectorIcon extends LitElement {
 
       svg {
         fill: var(--icon-color);
+        transform: scale(1);
         transition: fill 100ms ease-in-out,
           background 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
           padding 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
@@ -78,7 +85,14 @@ export class VectorIcon extends LitElement {
       .clickable:hover {
         cursor: pointer;
         fill: var(--color-link-primary);
-        background: rgba(255, 255, 255, 0.95);
+        background: rgb(255, 255, 255);
+      }
+
+      .circled {
+        background: rgb(240, 240, 240);
+        padding: 0.15em;
+        margin: -0.15em;
+        box-shadow: var(--shadow);
       }
 
       .wrapper {
@@ -86,8 +100,12 @@ export class VectorIcon extends LitElement {
         flex-direction: column;
         border-radius: 999px;
         transition: background 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
-          padding 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
-          margin 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          transform 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
+          padding 150ms linear, margin 150ms linear;
+      }
+
+      .wrapper.clickable {
+        transform: scale(1);
       }
 
       .wrapper.clickable:hover {
@@ -153,6 +171,7 @@ export class VectorIcon extends LitElement {
       <div
         class="wrapper ${getClasses({
           clickable: this.clickable,
+          circled: this.circled,
           animate: !!this.animateChange,
         })}"
       >
@@ -168,7 +187,8 @@ export class VectorIcon extends LitElement {
           })}"
         >
           <use
-            href="/sitestatic/icons/symbol-defs.svg?#icon-${this.lastName ||
+            href="/sitestatic/icons/symbol-defs.svg?v=${ICON_VERSION}#icon-${this
+              .lastName ||
             this.name ||
             this.id}"
           />
