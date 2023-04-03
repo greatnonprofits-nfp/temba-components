@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { TemplateResult, html, css, property } from 'lit-element';
-import { getUrl, getClasses, fetchResults, WebResponse } from '../utils';
+import {
+  getUrl,
+  getClasses,
+  fetchResults,
+  WebResponse,
+  postJSON,
+} from '../utils';
 import '../options/Options';
 import { EventHandler } from '../RapidElement';
 import { FormElement } from '../FormElement';
@@ -31,7 +37,9 @@ export class Select extends FormElement {
       }
 
       temba-options {
+        --temba-options-font-size: var(--temba-select-selected-font-size);
         --icon-color: var(--color-text-dark);
+        z-index: 3;
       }
 
       :host:focus {
@@ -81,11 +89,14 @@ export class Select extends FormElement {
         padding-top: 1px;
         box-shadow: 0 3px 20px 0 rgba(0, 0, 0, 0.04),
           0 1px 2px 0 rgba(0, 0, 0, 0.02);
+
+        position: relative;
+        z-index: 2;
         min-height: var(--temba-select-container-min-height);
       }
 
-      .select-container:hover temba-icon[name='chevron-down'],
-      .select-container:hover .clear-button {
+      temba-icon[name='chevron-down']:hover,
+      .clear-button:hover {
         --icon-color: var(--color-text-dark);
       }
 
@@ -273,6 +284,9 @@ export class Select extends FormElement {
       .searchbox::placeholder {
         color: var(--color-placeholder);
         font-weight: 300;
+        font-size: 1.1em;
+        line-height: var(--temba-select-selected-line-height);
+        padding-left: 1px;
       }
 
       .placeholder {
@@ -297,6 +311,34 @@ export class Select extends FormElement {
         --temba-select-selected-line-height: 13px;
         --temba-select-selected-font-size: 12px;
         --search-input-height: 7px !important;
+      }
+
+      .info-text {
+        opacity: 1;
+        transition: margin 200ms ease-in-out;
+        margin-bottom: 16px;
+        margin-top: -1em;
+        padding: 0.5em 1em;
+        background: #f3f3f3;
+        padding-top: 1.5em;
+        border-radius: var(--curvature);
+        font-size: 0.9em;
+        color: rgba(0, 0, 0, 0.5);
+        box-shadow: inset 0px 0px 4px rgb(0 0 0 / 10%);
+        z-index: 1;
+        position: relative;
+      }
+
+      .info-text.focused {
+        opacity: 1;
+      }
+
+      .info-text.hide {
+        opacity: 0;
+        max-height: 0;
+        margin-bottom: 0px;
+        margin-top: -2em;
+        pointer-events: none;
       }
     `;
   }
@@ -394,13 +436,17 @@ export class Select extends FormElement {
   @property({ type: String })
   flavor = 'default';
 
+  @property({ type: String, attribute: 'info_text' })
+  infoText = '';
+
   @property({ attribute: false })
   getName: (option: any) => string = (option: any) =>
     option[this.nameKey || 'name'];
 
   @property({ attribute: false })
   isMatch: (option: any, q: string) => boolean = (option: any, q: string) => {
-    return this.getName(option).toLowerCase().indexOf(q) > -1;
+    const name = this.getName(option) || '';
+    return name.toLowerCase().indexOf(q) > -1;
   };
 
   @property({ attribute: false })
@@ -448,6 +494,8 @@ export class Select extends FormElement {
   private page: number;
   private next: string = null;
   private query: string;
+
+  private removingSelection: boolean;
 
   private lruCache = flru(20);
 
@@ -497,6 +545,17 @@ export class Select extends FormElement {
       }
     }
 
+    // if they set an inital value, look through our static options for it
+    if (changedProperties.has('value') && this.value) {
+      const existing = this.staticOptions.find(option => {
+        return this.getValue(option) === this.value;
+      });
+
+      if (existing) {
+        this.setValue(existing);
+      }
+    }
+
     // default to the first option if we don't have a placeholder
     if (
       this.values.length === 0 &&
@@ -507,13 +566,11 @@ export class Select extends FormElement {
     }
   }
 
-  public handleOptionSelection(event: CustomEvent) {
-    const selected = event.detail.selected;
-
+  private setSelectedOption(option: any) {
     if (this.multi) {
-      this.addValue(selected);
+      this.addValue(option);
     } else {
-      this.setValue(selected);
+      this.setValue(option);
     }
 
     if (!this.multi || !this.searchable) {
@@ -528,6 +585,24 @@ export class Select extends FormElement {
     this.selectedIndex = -1;
 
     this.fireEvent('change');
+  }
+
+  public handleOptionSelection(event: CustomEvent) {
+    const selected = event.detail.selected;
+    // check if we should post it
+    if (selected.post && this.endpoint) {
+      postJSON(this.endpoint, selected).then(response => {
+        if (response.status >= 200 && response.status < 300) {
+          this.setSelectedOption(response.json);
+          this.lruCache = flru(20);
+        } else {
+          // TODO: find a way to share inline errors
+          this.blur();
+        }
+      });
+    } else {
+      this.setSelectedOption(selected);
+    }
   }
 
   private handleExpressionSelection(evt: CustomEvent) {
@@ -752,9 +827,6 @@ export class Select extends FormElement {
           return;
         }
 
-        // const CancelToken = axios.CancelToken;
-        // this.cancelToken = CancelToken.source();
-
         // if we are searchable, but doing it locally, fetch all the options
         if (this.searchable && !this.queryParam) {
           fetchResults(url).then((results: any) => {
@@ -772,8 +844,6 @@ export class Select extends FormElement {
             }
           });
         } else {
-          // this.cancelToken.token
-
           this.httpComplete = getUrl(url)
             .then((response: WebResponse) => {
               const results = this.getOptions(response).filter(
@@ -826,7 +896,7 @@ export class Select extends FormElement {
   private handleFocus(): void {
     if (!this.focused && this.visibleOptions.length === 0) {
       this.focused = true;
-      if (this.searchOnFocus) {
+      if (this.searchOnFocus && !this.removingSelection) {
         this.requestUpdate('input');
       }
     }
@@ -995,7 +1065,7 @@ export class Select extends FormElement {
 
           if (
             child.getAttribute('selected') !== null ||
-            (!this.placeholder && this.values.length === 0)
+            this.getValue(option) == this.value
           ) {
             if (this.getAttribute('multi') !== null) {
               this.addValue(option);
@@ -1003,6 +1073,25 @@ export class Select extends FormElement {
               this.setValue(option);
             }
           }
+        }
+      }
+
+      if (this.values.length === 0 && !this.placeholder) {
+        if (this.staticOptions.length == 0 && this.endpoint) {
+          // see if we need to auto select the first item but need to fetch it
+          fetchResults(this.endpoint).then((results: any) => {
+            if (results.length > 0) {
+              this.setValue(results[0]);
+              this.fireEvent('change');
+            }
+          });
+        } else {
+          if (this.getAttribute('multi') !== null) {
+            this.addValue(this.staticOptions[0]);
+          } else {
+            this.setValue(this.staticOptions[0]);
+          }
+          this.fireEvent('change');
         }
       }
 
@@ -1124,7 +1213,6 @@ export class Select extends FormElement {
         .hideErrors=${this.hideErrors}
         ?disabled=${this.disabled}
       >
-
         <div
           tabindex="0"
           class="select-container ${classes}"
@@ -1145,6 +1233,12 @@ export class Select extends FormElement {
                           <div
                             class="remove-item"
                             style="margin-top:1px"
+                            @mousedown=${() => {
+                              this.removingSelection = true;
+                            }}
+                            @mouseup=${() => {
+                              this.removingSelection = false;
+                            }}
                             @click=${(evt: MouseEvent) => {
                               evt.preventDefault();
                               evt.stopPropagation();
@@ -1180,43 +1274,48 @@ export class Select extends FormElement {
                 </div>`
               : null
           }
-          <temba-options
-          @temba-selection=${this.handleOptionSelection}
-          .cursorIndex=${this.cursorIndex}
-          .renderOptionDetail=${this.renderOptionDetail}
-          .renderOptionName=${this.renderOptionName}
-          .renderOption=${this.renderOption}
-          .anchorTo=${this.anchorElement}
-          .options=${this.visibleOptions}
-          .spaceSelect=${this.spaceSelect}
-          .nameKey=${this.nameKey}
-          .getName=${this.getNameInternal}
-          ?visible=${this.visibleOptions.length > 0}
-        ></temba-options>
-
-          <temba-options
-          @temba-selection=${this.handleExpressionSelection}
-          @temba-canceled=${() => {}}
-          .anchorTo=${this.anchorExpressions}
-          .options=${this.completionOptions}
-          .renderOption=${renderCompletionOption}
-          ?visible=${this.completionOptions.length > 0}
-          >
-            ${
-              this.currentFunction
-                ? html`
-                    <div class="current-fn">
-                      ${renderCompletionOption(this.currentFunction, true)}
-                    </div>
-                  `
-                : null
-            }
-            <div class="footer">Tab to complete, enter to select</div>
-          </temba-options>
-
           </div>
 
         </div>
+        <div class="info-text ${!this.infoText ? 'hide' : ''} ${
+      this.focused ? 'focused' : ''
+    }">${this.infoText}</div>
+
+    <temba-options
+    @temba-selection=${this.handleOptionSelection}
+    .cursorIndex=${this.cursorIndex}
+    .renderOptionDetail=${this.renderOptionDetail}
+    .renderOptionName=${this.renderOptionName}
+    .renderOption=${this.renderOption}
+    .anchorTo=${this.anchorElement}
+    .options=${this.visibleOptions}
+    .spaceSelect=${this.spaceSelect}
+    .nameKey=${this.nameKey}
+    .getName=${this.getNameInternal}
+    ?visible=${this.visibleOptions.length > 0}
+  ></temba-options>
+
+    <temba-options
+    @temba-selection=${this.handleExpressionSelection}
+    @temba-canceled=${() => {}}
+    .anchorTo=${this.anchorExpressions}
+    .options=${this.completionOptions}
+    .renderOption=${renderCompletionOption}
+    ?visible=${this.completionOptions.length > 0}
+    >
+      ${
+        this.currentFunction
+          ? html`
+              <div class="current-fn">
+                ${renderCompletionOption(this.currentFunction, true)}
+              </div>
+            `
+          : null
+      }
+      <div class="footer">Tab to complete, enter to select</div>
+    </temba-options>
+
+
 
         </temba-field>
     `;

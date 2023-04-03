@@ -9,7 +9,7 @@ export class Tip extends RapidElement {
   static get styles() {
     return css`
       .tip {
-        transition: opacity 300ms ease-in-out;
+        transition: opacity 200ms ease-in-out;
         margin: 0px;
         position: fixed;
         opacity: 0;
@@ -21,6 +21,7 @@ export class Tip extends RapidElement {
           0 1px 3px 0px rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         font-size: 14px;
         z-index: 10000;
+        color: #333;
       }
 
       .tip.hide-on-change {
@@ -148,15 +149,20 @@ export class Tip extends RapidElement {
   }
 
   lastEnter = 0;
+  failSafe = 0;
 
   private handleMouseEnter() {
     this.lastEnter = window.setTimeout(() => {
       this.visible = true;
+      this.failSafe = window.setTimeout(() => {
+        this.visible = false;
+      }, 2000);
     }, 600);
   }
 
   private handleMouseLeave() {
     window.clearTimeout(this.lastEnter);
+    window.clearTimeout(this.failSafe);
     this.visible = false;
   }
 
@@ -185,6 +191,7 @@ export class Tip extends RapidElement {
     return html`
       <div
         class="slot"
+        @click=${this.handleMouseLeave}
         @mouseenter=${this.handleMouseEnter}
         @mouseleave=${this.handleMouseLeave}
       >

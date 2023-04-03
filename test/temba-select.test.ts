@@ -62,7 +62,7 @@ export const clickOption = async (select: Select, index: number) => {
     `[data-option-index="${index}"]`
   ) as HTMLDivElement;
   option.click();
-  await clock.tick(50);
+  await clock.tick(250);
   await options.updateComplete;
   await select.updateComplete;
   //checkTimers(clock);
@@ -95,6 +95,7 @@ export const forPages = async (select: Select, pages = 1) => {
   for (const _ in range(0, pages * 3 + 1)) {
     await select.httpComplete;
     await select.updateComplete;
+    await waitFor(0);
   }
 };
 
@@ -357,6 +358,8 @@ describe('temba-select', () => {
 
       // close and reopen
       select.blur();
+      await clock.tick(250);
+
       await open(select);
       assert.equal(select.visibleOptions.length, 15);
 

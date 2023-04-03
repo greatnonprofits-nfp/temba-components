@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/camelcase */
 import { css, property } from 'lit-element';
 import { html, TemplateResult } from 'lit-html';
-import { CustomEventType, Ticket } from '../interfaces';
+import { Contact, CustomEventType, Ticket } from '../interfaces';
 import { RapidElement } from '../RapidElement';
 import { Asset, getAssets, getClasses, postJSON, throttle } from '../utils';
-import ResizeObserver from 'resize-observer-polyfill';
+
 import {
   AirtimeTransferredEvent,
   CampaignFiredEvent,
@@ -56,8 +55,38 @@ import {
   SCROLL_THRESHOLD,
 } from './helpers';
 
+// when images load, make sure we are on the bottom of the scroll window if necessary
+export const loadHandler = function (event) {
+  const target = event.target as HTMLElement;
+  const events = this.host.getEventsPane();
+  if (target.tagName == 'IMG') {
+    if (!this.host.showMessageAlert) {
+      if (
+        events.scrollTop > target.offsetTop - 1000 &&
+        target.offsetTop > events.scrollHeight - 500
+      ) {
+        this.host.scrollToBottom();
+      }
+    }
+  }
+};
+
 export class ContactHistory extends RapidElement {
   public httpComplete: Promise<void | ContactHistoryPage>;
+
+  public constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.addEventListener('load', loadHandler, true);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.shadowRoot.removeEventListener('load', loadHandler, true);
+  }
 
   private getStickyId = (event: ContactEvent) => {
     if (event.type === Events.TICKET_OPENED) {
@@ -95,6 +124,7 @@ export class ContactHistory extends RapidElement {
         flex-grow: 1;
         border-top-left-radius: var(--curvature);
         padding-top: 1em;
+        background: #fff;
       }
 
       temba-loading {
@@ -135,15 +165,27 @@ export class ContactHistory extends RapidElement {
         pointer: cursor;
       }
 
-      .sticky-bin {
+      .scroll-title {
         display: flex;
         flex-direction: column;
-        position: fixed;
         z-index: 2;
         border-top-left-radius: var(--curvature);
         overflow: hidden;
-        background: rgba(240, 240, 240, 0.95);
         box-shadow: 0px 3px 3px 0px rgba(0, 0, 0, 0.15);
+        background: rgb(240, 240, 240);
+        padding: 1em 1.2em;
+        font-size: 1.2em;
+        font-weight: 400;
+      }
+
+      .sticky-bin {
+        display: flex;
+        flex-direction: column;
+        z-index: 2;
+        border-top-left-radius: var(--curvature);
+        overflow: hidden;
+        box-shadow: 0px 3px 3px 0px rgba(0, 0, 0, 0.15);
+        background: rgb(240, 240, 240);
       }
 
       .sticky-bin temba-icon {
@@ -158,7 +200,8 @@ export class ContactHistory extends RapidElement {
         display: flex;
         margin: 1em -2em;
         padding: 1em 2em;
-        background: rgba(240, 240, 240, 0.8);
+        background: rgba(240, 240, 240, 0.95);
+        border-bottom: 1px solid rgba(220, 220, 220, 1);
       }
 
       .sticky.pinned {
@@ -169,7 +212,6 @@ export class ContactHistory extends RapidElement {
         margin: 0;
         padding: 1em 2em;
         border-radius: 0px;
-        border-bottom: 1px solid rgba(220, 220, 220, 1);
       }
 
       .sticky .event {
@@ -183,11 +225,14 @@ export class ContactHistory extends RapidElement {
     `;
   }
 
+  @property({ type: Object })
+  contact: Contact;
+
   @property({ type: String })
   uuid: string;
 
-  @property({ type: Number })
-  agent: number;
+  @property({ type: String })
+  agent: string;
 
   @property({ type: Array })
   eventGroups: EventGroup[] = [];
@@ -222,9 +267,6 @@ export class ContactHistory extends RapidElement {
   @property({ type: Array })
   tickets: Ticket[] = null;
 
-  @property({ type: Object })
-  currentTicket: Ticket = null;
-
   ticketEvents: { [uuid: string]: TicketEvent } = {};
 
   nextBefore: number;
@@ -236,33 +278,21 @@ export class ContactHistory extends RapidElement {
 
   public firstUpdated(changedProperties: Map<string, any>) {
     super.firstUpdated(changedProperties);
-
     this.handleClose = this.handleClose.bind(this);
-
-    const stickyBin = this.getDiv('.sticky-bin');
-    const resizer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        const eventContainer = entry.contentRect;
-        stickyBin.style.width =
-          eventContainer.width + eventContainer.left - 16 + 'px';
-      }
-    });
-    resizer.observe(this);
   }
 
   public updated(changedProperties: Map<string, any>) {
     super.updated(changedProperties);
 
-    // fire an event when our current ticket changes
-    if (changedProperties.has('currentTicket')) {
-      this.fireCustomEvent(CustomEventType.ContextChanged, {
-        context: this.currentTicket,
-      });
-    }
-
     // fire an event if we get a new event
     if (changedProperties.has('mostRecentEvent')) {
       this.fireCustomEvent(CustomEventType.Refreshed);
+    }
+
+    if (changedProperties.has('endDate')) {
+      if (this.refreshTimeout && this.endDate) {
+        window.clearTimeout(this.refreshTimeout);
+      }
     }
 
     // if we don't have an endpoint infer one
@@ -294,7 +324,8 @@ export class ContactHistory extends RapidElement {
     if (
       changedProperties.has('refreshing') &&
       this.refreshing &&
-      this.endpoint
+      this.endpoint &&
+      !this.endDate
     ) {
       const after = (this.getLastEventTime() - 1) * 1000;
       let forceOpen = false;
@@ -488,30 +519,20 @@ export class ContactHistory extends RapidElement {
           stickyBin.removeChild(child);
         }
       }
-      if (!this.currentTicket) {
-        this.updateCurrentTicket();
-      }
-    }
-  }
-
-  private updateCurrentTicket() {
-    const openTickets = (this.tickets || []).filter(
-      ticket => ticket && ticket.status === 'open'
-    );
-    if (openTickets.length > 0) {
-      this.currentTicket = openTickets[openTickets.length - 1];
     }
   }
 
   private refreshTickets() {
-    let url = `/api/v2/tickets.json?contact=${this.uuid}`;
     if (this.ticket) {
-      url = `${url}&ticket=${this.ticket}`;
-    }
+      let url = `/api/v2/tickets.json?contact=${this.uuid}`;
+      if (this.ticket) {
+        url = `${url}&ticket=${this.ticket}`;
+      }
 
-    getAssets(url).then((tickets: Ticket[]) => {
-      this.tickets = tickets.reverse();
-    });
+      getAssets(url).then((tickets: Ticket[]) => {
+        this.tickets = tickets.reverse();
+      });
+    }
   }
 
   public getEventsPane() {
@@ -568,6 +589,10 @@ export class ContactHistory extends RapidElement {
   }
 
   private scheduleRefresh(wait = -1) {
+    if (this.endDate) {
+      return;
+    }
+
     let refreshWait = wait;
 
     if (wait === -1) {
@@ -596,11 +621,12 @@ export class ContactHistory extends RapidElement {
   private reset() {
     // clear out our sticky bin which we manipulated manually
     const stickyBin = this.getDiv('.sticky-bin');
-    while (stickyBin.childElementCount > 0) {
-      stickyBin.removeChild(stickyBin.firstElementChild);
+    if (stickyBin) {
+      while (stickyBin.childElementCount > 0) {
+        stickyBin.removeChild(stickyBin.firstElementChild);
+      }
     }
 
-    this.currentTicket = null;
     this.endpoint = null;
     this.tickets = null;
     this.ticketEvents = {};
@@ -657,43 +683,12 @@ export class ContactHistory extends RapidElement {
           sticky.classList.add('pinned');
           (sticky as any).eventElement = eventElement;
           stickyBin.appendChild(eventElement);
-          const uuid = eventElement.getAttribute('data-sticky-id');
-          const ticket = this.getTicket(uuid);
-          if (ticket) {
-            if (
-              !this.currentTicket ||
-              this.currentTicket.uuid !== ticket.uuid
-            ) {
-              this.currentTicket = ticket;
-            }
-          }
         }
       } else {
         const eventElement = (sticky as any).eventElement;
         if (scrollBoundary < sticky.offsetTop + sticky.offsetHeight) {
           sticky.appendChild(eventElement);
           sticky.classList.remove('pinned');
-
-          const uuid = eventElement.getAttribute('data-sticky-id');
-          let previousTicket: Ticket = null;
-          for (const ticket of this.tickets) {
-            if (ticket.uuid === uuid) {
-              break;
-            }
-            previousTicket = ticket;
-          }
-
-          if (
-            previousTicket &&
-            (!this.currentTicket ||
-              this.currentTicket.uuid !== previousTicket.uuid)
-          ) {
-            if (previousTicket.status === 'open') {
-              this.currentTicket = previousTicket;
-            } else {
-              this.currentTicket = null;
-            }
-          }
         }
       }
     });
@@ -765,7 +760,7 @@ export class ContactHistory extends RapidElement {
         if (activeTicket && ticket && ticket.status === 'open') {
           closeHandler = this.handleClose;
         }
-        return renderTicketOpened(ticketEvent, closeHandler);
+        return renderTicketOpened(ticketEvent, closeHandler, !this.ticket);
       }
       case Events.TICKET_NOTE_ADDED:
         return renderNoteCreated(event as TicketEvent, this.agent);
@@ -773,10 +768,14 @@ export class ContactHistory extends RapidElement {
       case Events.TICKET_ASSIGNED:
         return renderTicketAssigned(event as TicketEvent);
       case Events.TICKET_REOPENED: {
-        return renderTicketAction(event as TicketEvent, 'reopened');
+        return renderTicketAction(
+          event as TicketEvent,
+          'reopened',
+          !this.ticket
+        );
       }
       case Events.TICKET_CLOSED:
-        return renderTicketAction(event as TicketEvent, 'closed');
+        return renderTicketAction(event as TicketEvent, 'closed', !this.ticket);
 
       case Events.ERROR:
       case Events.FAILURE:
@@ -807,37 +806,42 @@ export class ContactHistory extends RapidElement {
   }
 
   private handleClose(uuid: string) {
-    this.httpComplete = postJSON(`/api/v2/tickets.json?uuid=${uuid}`, {
-      status: 'closed',
+    this.httpComplete = postJSON(`/api/v2/ticket_actions.json`, {
+      tickets: [uuid],
+      action: 'close',
     })
       .then(() => {
         this.refreshTickets();
         this.refresh();
         this.fireCustomEvent(CustomEventType.ContentChanged, {
-          ticket: { uuid, status: 'C' },
+          ticket: { uuid, status: 'closed' },
         });
-        this.updateCurrentTicket();
       })
       .catch((response: any) => {
         console.error(response);
       });
   }
 
-  public checkForAgentTakeEvent(agent: number) {
-    if (this.currentTicket) {
-      this.httpComplete = getAssets(
-        `/api/v2/tickets.json?ticket=${this.currentTicket.uuid}`
-      ).then((assets: Asset[]) => {
-        if (assets.length === 1) {
-          const ticket = assets[0] as Ticket;
-          if (ticket.assignee && ticket.assignee.id === agent) {
-            this.fireCustomEvent(CustomEventType.ContentChanged, {
-              ticket: { uuid: this.currentTicket.uuid, took: true },
-            });
-          }
+  public checkForAgentAssignmentEvent(agent: string) {
+    this.httpComplete = getAssets(
+      `/api/v2/tickets.json?uuid=${this.ticket}`
+    ).then((assets: Asset[]) => {
+      if (assets.length === 1) {
+        const ticket = assets[0] as Ticket;
+        if (ticket.assignee && ticket.assignee.email === agent) {
+          this.fireCustomEvent(CustomEventType.ContentChanged, {
+            ticket: { uuid: this.ticket, assigned: 'self' },
+          });
+        } else {
+          this.fireCustomEvent(CustomEventType.ContentChanged, {
+            ticket: {
+              uuid: this.ticket,
+              assigned: ticket.assignee ? ticket.assignee : null,
+            },
+          });
         }
-      });
-    }
+      }
+    });
   }
 
   public getEventHandlers() {
@@ -860,7 +864,9 @@ export class ContactHistory extends RapidElement {
 
     const renderedEvent = html`
       <div
-        class="event ${event.type} ${isSticky ? 'has-sticky' : ''}"
+        class="${this.ticket
+          ? 'active-ticket'
+          : ''} event ${event.type} ${isSticky ? 'has-sticky' : ''}"
         data-sticky-id="${stickyId}"
       >
         ${this.renderEvent(event)}
@@ -887,17 +893,17 @@ export class ContactHistory extends RapidElement {
                   type: Events.TICKET_OPENED,
                   ticket: {
                     uuid: ticket.uuid,
-                    subject: ticket.subject,
+                    topic: ticket.topic,
                     body: ticket.body,
                     ticketer: ticket.ticketer,
                   },
-                  // eslint-disable-next-line @typescript-eslint/camelcase
                   created_on: ticket.opened_on,
                 };
 
                 const renderedEvent = renderTicketOpened(
                   ticketOpenedEvent,
-                  this.handleClose
+                  this.handleClose,
+                  !this.ticket
                 );
                 return html`<div class="event ticket_opened">
                   ${renderedEvent}
@@ -908,68 +914,63 @@ export class ContactHistory extends RapidElement {
         : null;
 
     return html`
-      <div class="sticky-bin">${unfetchedTickets}</div>
+      ${this.ticket
+        ? html`<div class="sticky-bin">${unfetchedTickets}</div>`
+        : null}
       ${this.fetching
         ? html`<temba-loading units="5" size="10"></temba-loading>`
         : html`<div style="height:0em"></div>`}
       <div class="events" @scroll=${this.handleScroll}>
-        ${this.tickets
-          ? this.eventGroups.map((eventGroup: EventGroup, index: number) => {
-              const grouping = getEventGroupType(
-                eventGroup.events[0],
-                this.ticket
-              );
-              const groupIndex = this.eventGroups.length - index - 1;
+        ${this.eventGroups.map((eventGroup: EventGroup, index: number) => {
+          const grouping = getEventGroupType(eventGroup.events[0], this.ticket);
+          const groupIndex = this.eventGroups.length - index - 1;
 
-              const classes = getClasses({
-                grouping: true,
-                [grouping]: true,
-                expanded: eventGroup.open,
-                closing: eventGroup.closing,
-              });
+          const classes = getClasses({
+            grouping: true,
+            [grouping]: true,
+            expanded: eventGroup.open,
+            closing: eventGroup.closing,
+          });
 
-              return html`<div class="${classes}">
-                ${grouping === 'verbose'
-                  ? html`<div
-                      class="event-count"
-                      @click=${this.handleEventGroupShow}
-                      data-group-index="${groupIndex}"
-                    >
-                      ${eventGroup.events.length}
-                      ${eventGroup.events.length === 1
-                        ? html`event`
-                        : html`events`}
-                    </div>`
-                  : null}
-                ${grouping === 'verbose'
-                  ? html`
-                      <temba-icon
-                        @click=${this.handleEventGroupHide}
-                        data-group-index="${groupIndex}"
-                        class="grouping-close-button"
-                        name="x"
-                        clickable
-                      ></temba-icon>
-                    `
-                  : null}
-                ${eventGroup.events.map((event: ContactEvent) => {
-                  if (
-                    event.type === Events.TICKET_ASSIGNED &&
-                    (event as TicketEvent).note
-                  ) {
-                    const noteEvent = { ...event };
-                    noteEvent.type = Events.TICKET_NOTE_ADDED;
+          return html`<div class="${classes}">
+            ${grouping === 'verbose'
+              ? html`<div
+                  class="event-count"
+                  @click=${this.handleEventGroupShow}
+                  data-group-index="${groupIndex}"
+                >
+                  ${eventGroup.events.length}
+                  ${eventGroup.events.length === 1 ? html`event` : html`events`}
+                </div>`
+              : null}
+            ${grouping === 'verbose'
+              ? html`
+                  <temba-icon
+                    @click=${this.handleEventGroupHide}
+                    data-group-index="${groupIndex}"
+                    class="grouping-close-button"
+                    name="x"
+                    clickable
+                  ></temba-icon>
+                `
+              : null}
+            ${eventGroup.events.map((event: ContactEvent) => {
+              if (
+                event.type === Events.TICKET_ASSIGNED &&
+                (event as TicketEvent).note
+              ) {
+                const noteEvent = { ...event };
+                noteEvent.type = Events.TICKET_NOTE_ADDED;
 
-                    return html`${this.renderEventContainer(
-                      noteEvent
-                    )}${this.renderEventContainer(event)}`;
-                  } else {
-                    return this.renderEventContainer(event);
-                  }
-                })}
-              </div>`;
-            })
-          : null}
+                return html`${this.renderEventContainer(
+                  noteEvent
+                )}${this.renderEventContainer(event)}`;
+              } else {
+                return this.renderEventContainer(event);
+              }
+            })}
+          </div>`;
+        })}
       </div>
 
       <div class="new-messages-container">

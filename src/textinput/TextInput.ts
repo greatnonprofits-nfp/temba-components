@@ -19,8 +19,8 @@ export class TextInput extends FormElement {
         display: flex;
         flex-direction: row;
         align-items: stretch;
-        box-shadow: 0 3px 20px 0 rgba(0, 0, 0, 0.04),
-          0 1px 2px 0 rgba(0, 0, 0, 0.02);
+
+        box-shadow: var(--widget-box-shadow);
 
         caret-color: var(--input-caret);
       }
@@ -96,6 +96,33 @@ export class TextInput extends FormElement {
         color: var(--color-placeholder);
         font-weight: 300;
       }
+
+      .grow-wrap {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+      }
+
+      .grow-wrap > div {
+        border: 0px solid green;
+        width: 100%;
+        padding: var(--temba-textinput-padding);
+        flex: 1;
+        margin: 0;
+        background: none;
+        color: var(--color-widget-text);
+        font-family: var(--font-family);
+        font-size: var(--temba-textinput-font-size);
+        line-height: normal;
+        cursor: text;
+        resize: none;
+        font-weight: 300;
+        width: 100%;
+      }
+
+      .grow-wrap textarea {
+        margin-left: -100%;
+      }
     `;
   }
 
@@ -151,6 +178,9 @@ export class TextInput extends FormElement {
   @property({ type: Boolean })
   disabled = false;
 
+  @property({ type: Boolean })
+  autogrow = false;
+
   counterElement: CharCount = null;
   cursorStart = -1;
   cursorEnd = -1;
@@ -188,6 +218,13 @@ export class TextInput extends FormElement {
     if (changes.has('value')) {
       this.setValues([this.value]);
       this.fireEvent('change');
+
+      if (this.textarea && this.autogrow) {
+        const autogrow = this.shadowRoot.querySelector(
+          '.grow-wrap > div'
+        ) as HTMLDivElement;
+        autogrow.innerText = this.value + String.fromCharCode(10);
+      }
 
       if (this.cursorStart > -1 && this.cursorEnd > -1) {
         this.inputElement.setSelectionRange(this.cursorStart, this.cursorEnd);
@@ -288,6 +325,7 @@ export class TextInput extends FormElement {
     if (this.disabled) {
       return;
     }
+
     this.updateValue(update.target.value);
     this.setValues([this.value]);
     this.fireEvent('input');
@@ -416,10 +454,11 @@ export class TextInput extends FormElement {
           }
         }}
         placeholder=${this.placeholder}
-        .value="${this.value}"
+        .value=${this.value}
         .disabled=${this.disabled}
       />
     `;
+
     if (this.textarea) {
       input = html`
         <textarea
@@ -433,6 +472,13 @@ export class TextInput extends FormElement {
           .disabled=${this.disabled}
         ></textarea>
       `;
+
+      if (this.autogrow) {
+        input = html` <div class="grow-wrap">
+          <div></div>
+          ${input}
+        </div>`;
+      }
     }
 
     if (this.datepicker || this.datetimepicker) {

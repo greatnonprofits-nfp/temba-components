@@ -4,19 +4,19 @@
   "results": [
     {
       "name": "Chicken Nuggets",
-      "value": "chicken"
+      "id": "chicken"
     },
     {
       "name": "Fish Sticks",
-      "value": "fish"
+      "id": "fish"
     },
     {
       "name": "Beef Wellington",
-      "value": "beef"
+      "id": "beef"
     },
     {
       "name": "Tofu Steak",
-      "value": "tofu"
+      "id": "tofu"
     }
   ]
 }
