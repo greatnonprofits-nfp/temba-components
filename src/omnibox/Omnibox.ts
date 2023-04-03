@@ -1,6 +1,7 @@
 import { TemplateResult, html, css, property } from 'lit-element';
 import { styleMap } from 'lit-html/directives/style-map';
 import { RapidElement } from '../RapidElement';
+import { Select } from '../select/Select';
 
 enum OmniType {
   Group = 'group',
@@ -104,7 +105,9 @@ export class Omnibox extends RapidElement {
     }
 
     if (option.type === OmniType.Group) {
-      return html` <div style=${styleMap(style)}>${option.count}</div> `;
+      return html`
+        <div style=${styleMap(style)}>${option.count.toLocaleString()}</div>
+      `;
     }
 
     return null;
@@ -172,20 +175,22 @@ export class Omnibox extends RapidElement {
     }
   }
 
+  public getValues(): any[] {
+    const select = this.shadowRoot.querySelector('temba-select') as Select;
+    return select.values;
+  }
+
   public render(): TemplateResult {
-    return html` <temba-field
-      name=${this.name}
-      .label=${this.label}
-      .helpText=${this.helpText}
-      .errors=${this.errors}
-      .widgetOnly=${this.widgetOnly}
-      ?disabled=${this.disabled}
-    >
+    return html`
       <temba-select
         name=${this.name}
         endpoint=${this.getEndpoint()}
         placeholder=${this.placeholder}
         queryParam="search"
+        .label=${this.label}
+        .helpText=${this.helpText}
+        .widgetOnly=${this.widgetOnly}
+        ?disabled=${this.disabled}
         .errors=${this.errors}
         .values=${this.value}
         .renderOption=${this.renderOption.bind(this)}
@@ -196,6 +201,6 @@ export class Omnibox extends RapidElement {
         searchOnFocus
         multi
       ></temba-select>
-    </temba-field>`;
+    `;
   }
 }

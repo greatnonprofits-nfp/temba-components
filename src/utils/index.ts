@@ -39,29 +39,29 @@ export const getHTTPCookie = (name: string): string => {
   return null;
 };
 
-export const getHeaders = (pjax = false) => {
+export const getHeaders = (headers: any = {}) => {
   const csrf = getHTTPCookie('csrftoken');
-  const headers: any = csrf ? { 'X-CSRFToken': csrf } : {};
+  const fetchHeaders: any = csrf ? { 'X-CSRFToken': csrf } : {};
 
   // mark us as ajax
-  headers['X-Requested-With'] = 'XMLHttpRequest';
+  fetchHeaders['X-Requested-With'] = 'XMLHttpRequest';
 
-  if (pjax) {
-    headers['X-PJAX'] = 'true';
-  }
+  Object.keys(headers).forEach(key => {
+    fetchHeaders[key] = headers[key];
+  });
 
-  return headers;
+  return fetchHeaders;
 };
 
 export const getUrl = (
   url: string,
   controller: AbortController = null,
-  pjax = false
+  headers: { [key: string]: string } = {}
 ): Promise<WebResponse> => {
   return new Promise<WebResponse>((resolve, reject) => {
     const options = {
       method: 'GET',
-      headers: getHeaders(pjax),
+      headers: getHeaders(headers),
     };
 
     if (controller) {
@@ -183,17 +183,18 @@ export interface WebResponse {
 export const postUrl = (
   url: string,
   payload: any,
-  pjax = false,
+  headers: any = {},
   contentType = null
 ): Promise<WebResponse> => {
-  const headers = getHeaders(pjax);
+  const fetchHeaders = getHeaders(headers);
+
   if (contentType) {
-    headers['Content-Type'] = contentType;
+    fetchHeaders['Content-Type'] = contentType;
   }
-  //   headers['Content-Type'] = contentType;
+
   const options = {
     method: 'POST',
-    headers,
+    headers: fetchHeaders,
     body: payload,
   };
 
@@ -474,7 +475,7 @@ export const isDate = (value: string): boolean => {
   return DATE_FORMAT.test(value);
 };
 
-export const debounce = (fn: Function, millis: number, immediate = false) => {
+export const debounce = (fn: any, millis: number, immediate = false) => {
   let timeout: any;
   return function (...args: any) {
     const context = this;
@@ -493,7 +494,7 @@ export const debounce = (fn: Function, millis: number, immediate = false) => {
   };
 };
 
-export const throttle = (fn: Function, millis: number) => {
+export const throttle = (fn: any, millis: number) => {
   let ready = true;
   return function (...args: any) {
     const context = this;
@@ -562,3 +563,39 @@ export const oxfordNamed = (items: NamedObject[], joiner = 'and'): any => {
 export const getDialog = (button: Button): Dialog => {
   return (button.getRootNode() as ShadowRoot).host as Dialog;
 };
+
+export const setCookie = (name: string, value: any, path = undefined) => {
+  if (!path) {
+    // default path is the first word in the url
+    const url = document.location.pathname;
+    path = url.substring(0, url.indexOf('/', 1));
+  }
+  const now = new Date();
+  now.setTime(now.getTime() + 60 * 1000 * 60 * 24 * 30);
+  document.cookie = `${name}=${value};expires=${now.toUTCString()};path=${path}`;
+};
+
+export const getCookie = (name: string) => {
+  let cookieValue = null;
+  if (document.cookie && document.cookie != '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      // Does this cookie string begin with the name we want?
+      if (cookie.substring(0, name.length + 1) == name + '=') {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+};
+
+export const getCookieBoolean = (name: string) => {
+  return (getCookie(name) || '') === 'true';
+};
+
+export enum COOKIE_KEYS {
+  MENU_COLLAPSED = 'menu-collapsed',
+  TICKET_SHOW_DETAILS = 'tickets.show-details',
+}

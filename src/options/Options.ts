@@ -9,24 +9,26 @@ import {
   throttle,
 } from '../utils';
 
-interface NameFunction {
-  (option: any): string;
-}
-
 export class Options extends RapidElement {
   static get styles() {
     return css`
       .options-container {
-        visibility: hidden;
-        border-radius: var(--curvature-widget);
         background: var(--color-widget-bg-focused);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-          0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        border: 1px solid var(--color-widget-border);
         user-select: none;
+        box-shadow: var(--options-shadow);
         border-radius: var(--curvature-widget);
         overflow: hidden;
         margin-top: var(--options-margin-top);
+        display: flex;
+        flex-direction: column;
+        transform: scaleY(0.5) translateY(-5em);
+        transition: transform var(--transition-speed)
+            cubic-bezier(0.71, 0.18, 0.61, 1.33),
+          opacity var(--transition-speed) cubic-bezier(0.71, 0.18, 0.61, 1.33);
+        z-index: 10000;
+        pointer-events: none;
+        opacity: 0;
+        border: 1px transparent;
       }
 
       .anchored {
@@ -34,12 +36,49 @@ export class Options extends RapidElement {
       }
 
       :host([block]) .options-container {
+        flex-grow: 1;
+        height: 100%;
         border: none;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
-          0 1px 2px 0 rgba(0, 0, 0, 0.03);
+      }
+
+      :host([block]) .options-scroll {
         height: 100%;
         z-index: 9000;
         visibility: visible;
+        overflow-y: auto;
+        flex-grow: 1;
+        -webkit-mask-image: -webkit-radial-gradient(white, black);
+      }
+
+      :host([block]) {
+        box-shadow: var(--options-block-shadow);
+        border-radius: var(--curvature);
+        display: block;
+        height: 100%;
+      }
+
+      :host([block]) .options {
+        margin-bottom: 1.5em;
+      }
+
+      .options-scroll {
+        display: flex;
+        flex-direction: column;
+      }
+
+      :host([collapsed]) temba-icon {
+        flex-grow: 1;
+        margin-right: 0px !important;
+        padding-top: 0.25em;
+        padding-bottom: 0.25em;
+      }
+
+      :host([collapsed]) .name {
+        display: none;
+      }
+
+      :host([collapsed]) .count {
+        display: none;
       }
 
       .options {
@@ -50,15 +89,18 @@ export class Options extends RapidElement {
       }
 
       .show {
-        visibility: visible;
         z-index: 10000;
+        transform: scaleY(1) translateY(0);
+        border: 1px solid var(--color-widget-border);
+        pointer-events: auto;
+        opacity: 1;
       }
 
       .option {
-        font-size: 14px;
+        font-size: var(--temba-options-font-size);
         padding: 5px 10px;
         border-radius: 4px;
-        margin: 3px;
+        margin: 0.3em;
         cursor: pointer;
         color: var(--color-text-dark);
       }
@@ -67,6 +109,14 @@ export class Options extends RapidElement {
         user-select: none;
         -webkit-user-select: none;
         -ms-user-select: none;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        -ms-word-break: break-all;
+        word-break: break-word;
+        -ms-hyphens: auto;
+        -moz-hyphens: auto;
+        -webkit-hyphens: auto;
+        hyphens: auto;
       }
 
       .option.focused {
@@ -90,13 +140,28 @@ export class Options extends RapidElement {
       }
 
       :host([block]) .options {
-        max-height: inherit;
-        height: 100%;
+        overflow-y: initial;
       }
 
       temba-loading {
         align-self: center;
         margin-top: 0.025em;
+      }
+
+      .loader-bar {
+        pointer-events: none;
+        align-items: center;
+        background: #eee;
+        max-height: 0;
+        transition: max-height 200ms ease-in-out;
+        border-bottom-left-radius: var(--curvature-widget);
+        border-bottom-right-radius: var(--curvature-widget);
+        display: flex;
+        overflow: hidden;
+      }
+
+      .loading .loader-bar {
+        max-height: 1.1em;
       }
     `;
   }
@@ -134,6 +199,9 @@ export class Options extends RapidElement {
   @property({ type: Array })
   options: any[];
 
+  @property({ type: Array })
+  tempOptions: any[];
+
   @property({ type: Boolean })
   poppedTop: boolean;
 
@@ -145,6 +213,9 @@ export class Options extends RapidElement {
 
   @property({ type: Boolean })
   loading = false;
+
+  @property({ type: Boolean })
+  collapsed: boolean;
 
   @property({ attribute: false })
   getName: { (option: any): string } = function (option: any) {
@@ -216,7 +287,7 @@ export class Options extends RapidElement {
       ) as HTMLDivElement;
 
       if (focusedOption) {
-        const scrollBox = this.shadowRoot.querySelector('.options');
+        const scrollBox = this.shadowRoot.querySelector('.options-container');
         const scrollBoxRect = scrollBox.getBoundingClientRect();
         const scrollBoxHeight = scrollBoxRect.height;
         const focusedEleHeight = focusedOption.getBoundingClientRect().height;
@@ -239,8 +310,21 @@ export class Options extends RapidElement {
       });
     }
 
+    if (changedProperties.has('visible') && changedProperties.has('options')) {
+      if (!this.visible && this.options.length == 0) {
+        this.tempOptions = changedProperties.get('options');
+        window.setTimeout(() => {
+          this.tempOptions = [];
+        }, 300);
+      }
+    }
+
     if (changedProperties.has('options')) {
       this.calculatePosition();
+
+      // allow scrolls to trigger again
+      this.triggerScroll = true;
+
       const prevOptions = changedProperties.get('options');
       const previousCount = prevOptions ? prevOptions.length : 0;
       const newCount = this.options ? this.options.length : 0;
@@ -385,7 +469,7 @@ export class Options extends RapidElement {
     const scrollbox = evt.target as HTMLDivElement;
 
     // scroll height has changed, enable scroll trigger
-    if (scrollbox.scrollHeight != this.scrollHeight) {
+    if (scrollbox.scrollHeight > this.scrollHeight) {
       this.scrollHeight = scrollbox.scrollHeight;
       this.triggerScroll = true;
     }
@@ -412,7 +496,6 @@ export class Options extends RapidElement {
 
         if (this.anchorTo && this.scrollParent) {
           if (!isElementVisible(this.anchorTo, this.scrollParent)) {
-            // console.log("Not visible canceling");
             // this.fireCustomEvent(CustomEventType.Canceled);
           }
         }
@@ -460,6 +543,12 @@ export class Options extends RapidElement {
     }
   }
 
+  // we need to swallow mouse down so we don't grab focus
+  private handleMouseDown(evt: MouseEvent) {
+    evt.preventDefault();
+    evt.stopPropagation();
+  }
+
   private handleOptionClick(evt: MouseEvent) {
     evt.preventDefault();
     evt.stopPropagation();
@@ -498,44 +587,49 @@ export class Options extends RapidElement {
       show: this.visible,
       top: this.poppedTop,
       anchored: !this.block,
+      loading: this.loading,
     });
 
     const classesInner = getClasses({
       options: true,
     });
 
-    const options = this.options || [];
+    let options = this.options || [];
+    if (
+      options.length == 0 &&
+      this.tempOptions &&
+      this.tempOptions.length > 0
+    ) {
+      options = this.tempOptions;
+    }
+
     return html`
-      <div id="wrapper" class=${classes} style=${styleMap(containerStyle)}>
+      <div class=${classes} style=${styleMap(containerStyle)}>
         <div
-          @scroll=${throttle(this.handleInnerScroll, 100)}
-          class="${classesInner}"
-          style=${styleMap(optionsStyle)}
+          class="options-scroll"
+          @scroll=${this.handleInnerScroll}
+          @mousedown=${this.handleMouseDown}
         >
-          ${this.loading
-            ? html`<div
-                style="padding: 1em;
-                margin-bottom: 1;
-                display: flex;
-                flex-direction: column;"
+          <div class="${classesInner}" style=${styleMap(optionsStyle)}>
+            ${options.map((option, index) => {
+              return html`<div
+                data-option-index="${index}"
+                @mousemove=${this.handleMouseMove}
+                @click=${this.handleOptionClick}
+                @mousedown=${this.handleMouseDown}
+                class="option ${index === this.cursorIndex ? 'focused' : ''}"
               >
-                <temba-loading></temba-loading>
-              </div>`
-            : options.map((option, index) => {
-                return html`<div
-                  data-option-index="${index}"
-                  @mousemove=${this.handleMouseMove}
-                  @click=${this.handleOptionClick}
-                  class="option ${index === this.cursorIndex ? 'focused' : ''}"
-                >
-                  ${this.resolvedRenderOption(
-                    option,
-                    index === this.cursorIndex
-                  )}
-                </div>`;
-              })}
+                ${this.resolvedRenderOption(option, index === this.cursorIndex)}
+              </div>`;
+            })}
+            ${this.block ? html`<div style="height:0.1em"></div>` : null}
+          </div>
+          <slot></slot>
         </div>
-        <slot></slot>
+
+        <div class="loader-bar">
+          <temba-loading></temba-loading>
+        </div>
       </div>
     `;
   }

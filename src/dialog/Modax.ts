@@ -106,12 +106,20 @@ export class Modax extends RapidElement {
   @property({ type: Boolean })
   noSubmit: boolean;
 
-  @property()
-  width: string;
+  @property({ type: Object })
+  headers: any = {};
 
   @property({ type: String })
   body: any = this.getLoading();
 
+  @property({ type: Boolean })
+  disabled = false;
+
+  @property({ type: Boolean })
+  suspendSubmit = false;
+
+  @property()
+  width: string;
   // private cancelToken: CancelTokenSource;
 
   // http promise to monitor for completeness
@@ -225,12 +233,18 @@ export class Modax extends RapidElement {
     return !scriptOnly;
   }
 
+  public getHeaders(): any {
+    const headers = this.headers;
+    headers['X-PJAX'] = 1;
+    return headers;
+  }
+
   private fetchForm() {
     // const CancelToken = axios.CancelToken;
     // this.cancelToken = CancelToken.source();
     this.fetching = true;
     this.body = this.getLoading();
-    this.httpComplete = getUrl(this.endpoint, null, true).then(
+    this.httpComplete = getUrl(this.endpoint, null, this.getHeaders()).then(
       (response: WebResponse) => {
         this.setBody(response.body);
         this.updatePrimaryButton();
@@ -244,10 +258,6 @@ export class Modax extends RapidElement {
     );
   }
 
-  public updateLocation(location: string): void {
-    this.ownerDocument.location.href = location;
-  }
-
   public submit(): void {
     this.submitting = true;
     const form = this.shadowRoot.querySelector('form');
@@ -256,7 +266,7 @@ export class Modax extends RapidElement {
     this.httpComplete = postUrl(
       this.endpoint,
       postData,
-      true,
+      this.getHeaders(),
       'application/x-www-form-urlencoded'
     )
       .then((response: WebResponse) => {
@@ -278,7 +288,9 @@ export class Modax extends RapidElement {
               }, 0);
             } else {
               this.open = false; // close modal before redirection (needed to close modal on file download)
-              this.updateLocation(redirect);
+              this.fireCustomEvent(CustomEventType.Redirected, {
+                url: redirect,
+              });
               this.open = false;
             }
           } else {
@@ -290,7 +302,7 @@ export class Modax extends RapidElement {
         }, 1000);
       })
       .catch(error => {
-        console.log(error);
+        console.error(error);
       });
   }
 
@@ -298,14 +310,16 @@ export class Modax extends RapidElement {
     const button = evt.detail.button;
     if (!button.disabled && !button.submitting) {
       if (button.name === this.primaryName) {
-        this.submit();
+        if (!this.suspendSubmit) {
+          this.submit();
+        }
       }
     }
 
     if (button.name === (this.cancelName || 'Cancel')) {
       this.open = false;
       this.fetching = false;
-      // this.cancelToken.cancel();
+      this.cancelName = undefined;
     }
   }
 
@@ -335,6 +349,7 @@ export class Modax extends RapidElement {
         ?submitting=${this.submitting}
         ?destructive=${this.isDestructive()}
         ?noFocus=${true}
+        ?disabled=${this.disabled}
         @temba-button-clicked=${this.handleDialogClick.bind(this)}
         @temba-dialog-hidden=${this.handleDialogHidden.bind(this)}
       >

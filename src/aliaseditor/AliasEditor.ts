@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/camelcase */
 import { css, html, LitElement, property, TemplateResult } from 'lit-element';
 import { FeatureProperties } from '../interfaces';
 import { getUrl, postJSON, WebResponse } from '../utils';
@@ -120,7 +119,7 @@ export class AliasEditor extends LitElement {
         height: 250px;
         width: 450px;
         border: 0px solid #999;
-        border-radius: 5px;
+        border-radius: var(--curvature);
       }
 
       .edit {
@@ -258,7 +257,7 @@ export class AliasEditor extends LitElement {
                       evt.stopPropagation();
                     }}
                   >
-                    <temba-icon name="edit" path-prefix="/sitestatic" />
+                    <temba-icon name="edit" />
                   </div>
                 `
               : ''}
