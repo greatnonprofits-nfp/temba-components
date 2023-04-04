@@ -36,7 +36,7 @@
     "leaflet": "1.5.1",
     "lit": "2.2.0",
     "luxon": "^2.4.0",
-    "marked": "4.0.10",
+    "marked": "4.2.12",
     "remarkable": "^2.0.1",
     "serialize-javascript": "^3.0.0",
     "tiny-lru": "^8.0.2"
