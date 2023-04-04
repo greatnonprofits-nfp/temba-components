@@ -6156,10 +6156,10 @@ koa@^2.13.0, koa@^2.7.0:
     type-is "^1.6.16"
     vary "^1.1.2"
 
-leaflet@1.5.1:
-  version "1.5.1"
-  resolved "https://registry.npmjs.org/leaflet/-/leaflet-1.5.1.tgz#9afb9d963d66c870066b1342e7a06f92840f46bf"
-  integrity sha512-ekM9KAeG99tYisNBg0IzEywAlp0hYI5XRipsqRXyRTeuU8jcuntilpp+eFf5gaE0xubc9RuSNIVtByEKwqFV0w==
+leaflet@1.9.3:
+  version "1.9.3"
+  resolved "https://registry.yarnpkg.com/leaflet/-/leaflet-1.9.3.tgz#52ec436954964e2d3d39e0d433da4b2500d74414"
+  integrity sha512-iB2cR9vAkDOu5l3HAay2obcUHZ7xwUBBjph8+PGtmW/2lYhbLizWtG7nTeYht36WfOslixQF9D/uSIzhZgGMfQ==
 
 levn@^0.4.1:
   version "0.4.1"
