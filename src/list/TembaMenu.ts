@@ -1,4 +1,5 @@
-import { css, html, property, TemplateResult } from 'lit-element';
+import { css, html, TemplateResult } from 'lit';
+import { property } from 'lit/decorators';
 import { CustomEventType } from '../interfaces';
 import { RapidElement } from '../RapidElement';
 import { fetchResults, getClasses } from '../utils';
@@ -19,6 +20,7 @@ export interface MenuItem {
   items?: MenuItem[];
   inline?: boolean;
   type?: string;
+  on_submit?: string;
 }
 
 interface MenuItemState {
@@ -30,14 +32,16 @@ const findItem = (
   id: string
 ): { item: MenuItem; index: number } => {
   const search = items || [];
+
   const index = search.findIndex((item: MenuItem) => {
     return item.id == id || item.vanity_id == id;
   });
 
   if (index > -1) {
     const item = search[index];
-    return { item: item, index: index };
+    return { item, index };
   }
+
   return { item: null, index: -1 };
 };
 
@@ -52,7 +56,7 @@ export class TembaMenu extends RapidElement {
       }
 
       .section {
-        font-size: 1.875rem;
+        font-size: 1.5em;
         margin-bottom: 0.2em;
         color: var(--color-text-dark);
       }
@@ -75,7 +79,7 @@ export class TembaMenu extends RapidElement {
         user-select: none;
         -webkit-user-select: none;
         display: flex;
-        font-size: 1.15em;
+        font-size: 1em;
         --icon-color: var(--color-text-dark);
       }
 
@@ -227,34 +231,13 @@ export class TembaMenu extends RapidElement {
       }
 
       .inline-children {
-        padding: 0.5em;
-        border-bottom-right-radius: var(--curvature);
-        border-bottom-left-radius: var(--curvature);
-        font-size: 1rem;
-        margin-bottom: 0.75em;
-        border: 1px solid #f3f3f3;
-        z-index: 1000;
-        border-top: none;
       }
 
       .inline-children .item {
-        max-width: 11em !important;
-        min-width: 11em !important;
       }
 
       .item.inline {
         border: 0px solid transparent;
-      }
-
-      .item.inline.child-selected,
-      .item.inline.selected {
-        background: #f3f3f3;
-        border: 0px solid #f1f1f1;
-        border-bottom-right-radius: 0px !important;
-        border-bottom-left-radius: 0px !important;
-        z-index: 1000;
-        color: #444;
-        --icon-color: #444;
       }
 
       .level-1,
@@ -384,7 +367,7 @@ export class TembaMenu extends RapidElement {
       }
 
       .sub-section {
-        font-size: 1.1rem;
+        font-size: 1rem;
         color: #888;
         margin-top: 1rem;
         margin-left: 0.3rem;
@@ -411,8 +394,8 @@ export class TembaMenu extends RapidElement {
       }
 
       temba-button {
-        margin-top: 0.5em;
-        margin-bottom: 0.5em;
+        margin-top: 0.2em;
+        margin-bottom: 0.2em;
         margin-left: 0.75em;
         margin-right: 0.75em;
       }
@@ -486,56 +469,19 @@ export class TembaMenu extends RapidElement {
     }
   }
 
-  public refresh() {
-    const path = [...this.selection];
-    let items = this.root.items;
-    let item = null;
-    while (path.length > 0) {
-      const step = path.splice(0, 1)[0];
-      if (items) {
-        item = findItem(items, step).item;
-        if (item) {
-          if (item.endpoint) {
-            item.loading = true;
-            const itemToUpdate = item;
-            fetchResults(itemToUpdate.endpoint).then((updated: MenuItem[]) => {
-              // for now we only deal with updating counts and names
-              (itemToUpdate.items || []).forEach(
-                (existing: MenuItem, index: number, items: []) => {
-                  const itdx = findItem(updated, existing.id);
-                  const updatedItem = itdx.item;
+  public refresh(path: string[] = null) {
+    if (!path) {
+      path = [...this.selection];
+    }
 
-                  // remove it from our updated list
-                  updated.splice(itdx.index, 1);
+    // go up the tree until we find an endpoint
+    const item = this.getMenuItemForSelection(path);
 
-                  // we were removed!
-                  if (!updatedItem) {
-                    items.splice(index, 1);
-
-                    if (
-                      this.selection.length > 1 &&
-                      this.selection[this.selection.length - 1] == existing.id
-                    ) {
-                      this.selection.splice(this.selection.length - 1, 1);
-                      this.clickItem(this.selection[this.selection.length - 1]);
-                    }
-                  } else {
-                    existing.count = updatedItem.count;
-                    existing.name = updatedItem.name;
-                  }
-                }
-              );
-
-              itemToUpdate.loading = false;
-              this.requestUpdate('root');
-            });
-          }
-
-          items = item.items;
-        }
-      } else {
-        break;
-      }
+    if (item.endpoint) {
+      this.loadItems(item, false);
+    } else {
+      path.pop();
+      this.refresh(path);
     }
   }
 
@@ -570,9 +516,10 @@ export class TembaMenu extends RapidElement {
             subItem.level = item.level + 1;
             // if we came with preset items, set the level for them accordingly
             if (subItem.items) {
-              subItem.items.forEach(
-                inlineItem => (inlineItem.level = item.level + 2)
-              );
+              subItem.items.forEach(inlineItem => {
+                inlineItem.level = item.level + 2;
+                // inlineItem.parent = subItem;
+              });
             }
           });
 
@@ -582,11 +529,11 @@ export class TembaMenu extends RapidElement {
           this.scrollSelectedIntoView();
           if (this.pending && this.pending.length > 0) {
             // auto select the next pending click
-            const nextId = this.pending.splice(0, 1)[0];
+            const nextId = this.pending.shift();
             if (nextId && items.length > 0) {
-              const nextItem = findItem(items, nextId).item;
-              if (nextItem) {
-                this.handleItemClicked(null, nextItem);
+              const nextItem = findItem(items, nextId);
+              if (nextItem.item) {
+                this.handleItemClicked(null, nextItem.item);
               } else {
                 this.fireNoPath(nextId);
               }
@@ -612,7 +559,15 @@ export class TembaMenu extends RapidElement {
     }
   }
 
-  private handleItemClicked(event: MouseEvent, menuItem: MenuItem) {
+  private handleItemClicked(
+    event: MouseEvent,
+    menuItem: MenuItem,
+    parent: MenuItem = null
+  ) {
+    if (parent && parent.inline) {
+      this.handleItemClicked(null, parent);
+    }
+
     if (this.collapsed) {
       this.collapsed = false;
     }
@@ -626,6 +581,7 @@ export class TembaMenu extends RapidElement {
       this.fireCustomEvent(CustomEventType.ButtonClicked, {
         title: menuItem.name,
         href: menuItem.href,
+        on_submit: menuItem.on_submit,
       });
       return;
     }
@@ -656,19 +612,22 @@ export class TembaMenu extends RapidElement {
         this.loadItems(menuItem, !menuItem.href);
         this.dispatchEvent(new Event('change'));
       } else {
-        this.dispatchEvent(new Event('change'));
         if (this.pending && this.pending.length > 0) {
           // auto select the next pending click
-          const nextId = this.pending.splice(0, 1)[0];
+          const nextId = this.pending.shift();
           const item = this.getMenuItem();
           if (nextId && item && item.items && item.items.length > 0) {
             const nextItem = findItem(item.items, nextId).item;
             if (nextItem) {
               this.handleItemClicked(null, nextItem);
+            } else {
+              this.fireNoPath(nextId);
             }
           } else {
             this.fireNoPath(nextId);
           }
+        } else {
+          this.dispatchEvent(new Event('change'));
         }
         this.requestUpdate('root');
       }
@@ -703,7 +662,7 @@ export class TembaMenu extends RapidElement {
   }
 
   public getMenuItemForSelection(selection: string[]) {
-    const path = selection;
+    const path = [...selection];
     let items = this.root.items;
     let item = null;
     while (path.length > 0) {
@@ -799,12 +758,15 @@ export class TembaMenu extends RapidElement {
     return expanded;
   }
 
-  private renderMenuItem = (menuItem: MenuItem): TemplateResult => {
+  private renderMenuItem = (
+    menuItem: MenuItem,
+    parent: MenuItem = null
+  ): TemplateResult => {
     if (menuItem.type === 'divider') {
       return html`<div class="divider"></div>`;
     }
 
-    if (menuItem.type === 'section') {
+    if (menuItem.type === 'section' || menuItem.inline) {
       return html`<div class="sub-section">${menuItem.name}</div>`;
     }
 
@@ -855,7 +817,7 @@ export class TembaMenu extends RapidElement {
         id="menu-${menuItem.id}"
         class="${itemClasses}"
         @click=${event => {
-          this.handleItemClicked(event, menuItem);
+          this.handleItemClicked(event, menuItem, parent);
         }}
       >
         ${menuItem.level === 0
@@ -967,11 +929,11 @@ export class TembaMenu extends RapidElement {
               ? html`<div class="section">${selected.name}</div>`
               : null}
             ${items.map((item: MenuItem) => {
-              if (item.inline && this.isSelected(item)) {
+              if (item.inline) {
                 return html`${this.renderMenuItem(item)}
                   <div class="inline-children">
                     ${item.items.map((child: MenuItem) => {
-                      return this.renderMenuItem(child);
+                      return this.renderMenuItem(child, item);
                     })}
                   </div>`;
               }
