@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import { TemplateResult, html, css, property } from 'lit-element';
+import { TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 import {
   getUrl,
   getClasses,
@@ -11,7 +12,7 @@ import '../options/Options';
 import { EventHandler } from '../RapidElement';
 import { FormElement } from '../FormElement';
 
-import flru from 'flru';
+import Lru from 'tiny-lru';
 import { CompletionOption, CustomEventType, Position } from '../interfaces';
 import {
   renderCompletionOption,
@@ -28,7 +29,7 @@ export class Select extends FormElement {
     return css`
       :host {
         font-family: var(--font-family);
-        transition: all ease-in-out 200ms;
+        transition: all ease-in-out var(--transition-speed);
         display: inline;
         line-height: normal;
         outline: none;
@@ -82,7 +83,7 @@ export class Select extends FormElement {
         flex-wrap: nowrap;
         align-items: center;
         border: 1px solid var(--color-widget-border);
-        transition: all ease-in-out 200ms;
+        transition: all ease-in-out var(--transition-speed);
         cursor: pointer;
         border-radius: var(--curvature-widget);
         background: var(--color-widget-bg);
@@ -315,7 +316,7 @@ export class Select extends FormElement {
 
       .info-text {
         opacity: 1;
-        transition: margin 200ms ease-in-out;
+        transition: margin var(--transition-speed) ease-in-out;
         margin-bottom: 16px;
         margin-top: -1em;
         padding: 0.5em 1em;
@@ -470,19 +471,19 @@ export class Select extends FormElement {
     html``;
 
   @property({ attribute: false })
-  renderSelectedItem: (option: any) => TemplateResult = this
-    .renderSelectedItemDefault;
+  renderSelectedItem: (option: any) => TemplateResult =
+    this.renderSelectedItemDefault;
 
   @property({ attribute: false })
-  createArbitraryOption: (input: string, options: any[]) => any = this
-    .createArbitraryOptionDefault;
+  createArbitraryOption: (input: string, options: any[]) => any =
+    this.createArbitraryOptionDefault;
 
   @property({ attribute: false })
   getOptions: (response: WebResponse) => any[] = this.getOptionsDefault;
 
   @property({ attribute: false })
-  isComplete: (newestOptions: any[], response: WebResponse) => boolean = this
-    .isCompleteDefault;
+  isComplete: (newestOptions: any[], response: WebResponse) => boolean =
+    this.isCompleteDefault;
 
   @property({ type: Array, attribute: 'options' })
   private staticOptions: any[] = [];
@@ -497,7 +498,7 @@ export class Select extends FormElement {
 
   private removingSelection: boolean;
 
-  private lruCache = flru(20);
+  private lruCache = Lru(20, 60000);
 
   // http promise to monitor for completeness
   public httpComplete: Promise<void | WebResponse>;
@@ -507,7 +508,7 @@ export class Select extends FormElement {
 
     // if our cache key changes, clear it out
     if (changedProperties.has('cacheKey')) {
-      this.lruCache.clear(false);
+      this.lruCache.clear();
     }
 
     if (
@@ -594,7 +595,7 @@ export class Select extends FormElement {
       postJSON(this.endpoint, selected).then(response => {
         if (response.status >= 200 && response.status < 300) {
           this.setSelectedOption(response.json);
-          this.lruCache = flru(20);
+          this.lruCache = Lru(20, 60000);
         } else {
           // TODO: find a way to share inline errors
           this.blur();
@@ -812,8 +813,8 @@ export class Select extends FormElement {
           url = this.next;
         }
 
-        if (this.cache && !this.tags && this.lruCache.has(url)) {
-          const cache = this.lruCache.get(url);
+        const cache = this.lruCache.get(url);
+        if (this.cache && !this.tags && cache) {
           if (page === 0 && !this.next) {
             this.cursorIndex = 0;
             this.setVisibleOptions([...options, ...cache.options]);
@@ -1071,6 +1072,7 @@ export class Select extends FormElement {
               this.addValue(option);
             } else {
               this.setValue(option);
+              this.fireEvent('change');
             }
           }
         }

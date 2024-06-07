@@ -1,47 +1,48 @@
-import { css, html, property, TemplateResult } from 'lit-element';
-import { RapidElement } from '../RapidElement';
+import { css, html, TemplateResult } from 'lit';
+import { property } from 'lit/decorators';
 import { Contact, CustomEventType, Ticket } from '../interfaces';
 import { COOKIE_KEYS, getCookieBoolean, postJSON, setCookie } from '../utils';
 import { TextInput } from '../textinput/TextInput';
 import { Completion } from '../completion/Completion';
 import { ContactHistory } from './ContactHistory';
 import { Modax } from '../dialog/Modax';
-import { fetchContact } from './helpers';
+import { ContactStoreElement } from './ContactStoreElement';
 
 const DEFAULT_REFRESH = 10000;
 
-export class ContactChat extends RapidElement {
+export class ContactChat extends ContactStoreElement {
   public static get styles() {
     return css`
-      :host {
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2),
-          0 1px 2px 0 rgba(0, 0, 0, 0.06);
-
-        height: 100%;
-        border-radius: var(--curvature);
-
-        flex-grow: 1;
-        width: 100%;
-        display: block;
-        background: #f2f2f2;
-        overflow: hidden;
-      }
-
       .left-pane {
         box-shadow: -13px 10px 7px 14px rgba(0, 0, 0, 0);
         transition: box-shadow 600ms linear;
       }
 
       .left-pane.open {
-        box-shadow: -13px 10px 7px 14px rgba(0, 0, 0, 0.15);
         z-index: 1000;
+      }
+
+      :host {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: row;
+        min-height: 0;
+        border-radius: var(--curvature);
       }
 
       .chat-wrapper {
         display: flex;
+        flex-grow: 1;
         flex-direction: column;
-        height: 100%;
         overflow: hidden;
+        min-height: 0;
+      }
+
+      temba-contact-history {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
 
       .chatbox {
@@ -52,6 +53,11 @@ export class ContactChat extends RapidElement {
         flex-direction: column;
         z-index: 3;
         border-bottom-left-radius: var(--curvature);
+        border-bottom-right-radius: var(--curvature);
+      }
+
+      .chatbox.full {
+        border-bottom-right-radius: 0 !important;
       }
 
       .closed-footer {
@@ -157,9 +163,6 @@ export class ContactChat extends RapidElement {
     `;
   }
 
-  @property({ type: String, attribute: 'contact' })
-  contactUUID: string;
-
   @property({ type: String, attribute: 'ticket' })
   ticketUUID: string;
 
@@ -174,6 +177,9 @@ export class ContactChat extends RapidElement {
 
   @property({ type: Boolean })
   showDetails = true;
+
+  @property({ type: Boolean })
+  toolbar = false;
 
   @property({ type: Boolean })
   monitor = false;
@@ -231,17 +237,12 @@ export class ContactChat extends RapidElement {
   public updated(changedProperties: Map<string, any>) {
     super.updated(changedProperties);
 
-    // we were provided a uuid, fetch our contact details
-    if (changedProperties.has('contactUUID') && this.contactUUID) {
-      fetchContact(this.contactsEndpoint + '?uuid=' + this.contactUUID).then(
-        contact => {
-          this.currentContact = contact;
-        }
-      );
-    }
-
     // if we don't have an endpoint infer one
-    if (changedProperties.has('currentContact')) {
+    if (
+      changedProperties.has('data') ||
+      changedProperties.has('currentContact')
+    ) {
+      this.currentContact = this.data;
       // focus our completion on load
       const prevContact = changedProperties.get('contact');
       if (
@@ -320,14 +321,13 @@ export class ContactChat extends RapidElement {
 
   public render(): TemplateResult {
     return html`
-      <div style="display: flex; height: 100%;">
-        <div
-          style="flex-grow: 1; margin-right: 0em;"
-          class="left-pane  ${this.showDetails ? 'open' : ''}"
-        >
-          <div class="chat-wrapper">
-            ${this.currentContact
-              ? html` <temba-contact-history
+      <div
+        style="flex-grow: 1; margin-right: 0em; display:flex; flex-direction:row; min-height: 0;"
+        class="left-pane  ${this.showDetails ? 'open' : ''}"
+      >
+        <div class="chat-wrapper">
+          ${this.currentContact
+            ? html`<temba-contact-history
                     .uuid=${this.currentContact.uuid}
                     .contact=${this.currentContact}
                     .ticket=${
@@ -348,7 +348,9 @@ export class ContactChat extends RapidElement {
                             @click=${this.handleReopen}
                           ></temba-button>
                         </div>`
-                      : html` <div class="chatbox">
+                      : html` <div
+                          class="chatbox ${this.toolbar ? 'full' : ''}"
+                        >
                           <temba-completion
                             @change=${this.handleChatChange}
                             .value=${this.currentChat}
@@ -374,81 +376,88 @@ export class ContactChat extends RapidElement {
                         </div>`
                   }
                   </div>`
-              : null}
-          </div>
-        </div>
-        ${this.currentContact
-          ? html`<temba-contact-details
-              style="z-index: 10"
-              class="${this.showDetails ? '' : 'hidden'}"
-              showGroups="true"
-              .visible=${this.showDetails}
-              .ticket=${this.currentTicket}
-              .contact=${this.currentContact}
-            ></temba-contact-details>`
-          : null}
-
-        <div class="toolbar ${this.showDetails ? '' : 'closed'}">
-          ${this.currentContact
-            ? html`
-                <temba-tip
-                  style="margin-top:5px"
-                  text="${this.showDetails ? 'Hide Details' : 'Show Details'}"
-                  position="left"
-                  hideOnChange
-                >
-                  <temba-icon
-                    id="details-button"
-                    name="${this.showDetails ? 'chevrons-left' : 'sidebar'}"
-                    @click="${this.handleDetailSlider}"
-                    clickable
-                    animatechange="spin"
-                  ></temba-icon>
-                </temba-tip>
-
-                ${this.currentTicket
-                  ? html`<temba-tip
-                        style="margin-top:5px"
-                        text="Assign"
-                        position="left"
-                      >
-                        <temba-icon
-                          id="assign-button"
-                          name="user"
-                          @click="${() => {
-                            const modax = this.shadowRoot.getElementById(
-                              'assign-dialog'
-                            ) as Modax;
-                            modax.open = true;
-                          }}"
-                          clickable
-                        ></temba-icon>
-                      </temba-tip>
-                      <temba-tip
-                        style="margin-top:5px"
-                        text="Add Note"
-                        position="left"
-                      >
-                        <temba-icon
-                          id="add-note-button"
-                          name="edit"
-                          @click="${() => {
-                            const note = this.shadowRoot.getElementById(
-                              'note-dialog'
-                            ) as Modax;
-                            note.open = true;
-                          }}"
-                          clickable
-                        ></temba-icon>
-                      </temba-tip>`
-                  : null}
-              `
             : null}
         </div>
       </div>
 
-      ${this.currentTicket
-        ? html`<temba-modax
+      ${this.toolbar
+        ? html`${
+            this.currentContact
+              ? html`<temba-contact-details
+                  style="z-index: 10"
+                  class="${this.showDetails ? '' : 'hidden'}"
+                  showGroups="true"
+                  .visible=${this.showDetails}
+                  .ticket=${this.currentTicket}
+                  .contact=${this.currentContact}
+                ></temba-contact-details>`
+              : null
+          }
+
+        <div class="toolbar ${this.showDetails ? '' : 'closed'}">
+          ${
+            this.currentContact
+              ? html`
+                  <temba-tip
+                    style="margin-top:5px"
+                    text="${this.showDetails ? 'Hide Details' : 'Show Details'}"
+                    position="left"
+                    hideOnChange
+                  >
+                    <temba-icon
+                      id="details-button"
+                      name="${this.showDetails ? 'chevrons-left' : 'sidebar'}"
+                      @click="${this.handleDetailSlider}"
+                      clickable
+                      animatechange="spin"
+                    ></temba-icon>
+                  </temba-tip>
+
+                  ${this.currentTicket
+                    ? html`<temba-tip
+                          style="margin-top:5px"
+                          text="Assign"
+                          position="left"
+                        >
+                          <temba-icon
+                            id="assign-button"
+                            name="user"
+                            @click="${() => {
+                              const modax = this.shadowRoot.getElementById(
+                                'assign-dialog'
+                              ) as Modax;
+                              modax.open = true;
+                            }}"
+                            clickable
+                          ></temba-icon>
+                        </temba-tip>
+                        <temba-tip
+                          style="margin-top:5px"
+                          text="Add Note"
+                          position="left"
+                        >
+                          <temba-icon
+                            id="add-note-button"
+                            name="edit"
+                            @click="${() => {
+                              const note = this.shadowRoot.getElementById(
+                                'note-dialog'
+                              ) as Modax;
+                              note.open = true;
+                            }}"
+                            clickable
+                          ></temba-icon>
+                        </temba-tip>`
+                    : null}
+                `
+              : null
+          }
+        </div>
+      </div>
+
+      ${
+        this.currentTicket
+          ? html`<temba-modax
               header="Add Note"
               id="note-dialog"
               @temba-submitted=${this.refresh}
@@ -460,6 +469,8 @@ export class ContactChat extends RapidElement {
               @temba-submitted=${this.handleTicketAssigned}
               endpoint="/ticket/assign/${this.currentTicket.uuid}/"
             /></temba-modax>`
+          : null
+      }`
         : null}
     `;
   }

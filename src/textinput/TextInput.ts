@@ -1,4 +1,5 @@
-import { TemplateResult, html, css, property } from 'lit-element';
+import { TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 import { ifDefined } from 'lit-html/directives/if-defined';
 import { styleMap } from 'lit-html/directives/style-map';
 import { FormElement } from '../FormElement';
@@ -15,13 +16,11 @@ export class TextInput extends FormElement {
         cursor: text;
         background: var(--color-widget-bg);
         border: 1px solid var(--color-widget-border);
-        transition: all ease-in-out 200ms;
+        transition: all ease-in-out var(--transition-speed);
         display: flex;
         flex-direction: row;
         align-items: stretch;
-
         box-shadow: var(--widget-box-shadow);
-
         caret-color: var(--input-caret);
       }
 
@@ -46,6 +45,8 @@ export class TextInput extends FormElement {
         border-color: var(--color-focus);
         background: var(--color-widget-bg-focused);
         box-shadow: var(--widget-box-shadow-focused);
+        z-index: 10000;
+        position: relative;
       }
 
       .input-container:hover {
@@ -185,6 +186,8 @@ export class TextInput extends FormElement {
   cursorStart = -1;
   cursorEnd = -1;
 
+  isoFormattedDate: string;
+
   public constructor() {
     super();
   }
@@ -196,6 +199,7 @@ export class TextInput extends FormElement {
     if (this.dateElement) {
       this.onDateUpdated = this.onDateUpdated.bind(this);
       this.onDateReady = this.onDateReady.bind(this);
+      this.onDateClose = this.onDateClose.bind(this);
     }
 
     this.inputElement = this.shadowRoot.querySelector('.textinput');
@@ -215,49 +219,65 @@ export class TextInput extends FormElement {
 
   public updated(changes: Map<string, any>) {
     super.updated(changes);
+
     if (changes.has('value')) {
-      this.setValues([this.value]);
-      this.fireEvent('change');
+      if (this.datepicker || this.datetimepicker) {
+        this.onDateReady();
+      } else {
+        this.setValues([this.value]);
+        this.fireEvent('change');
 
-      if (this.textarea && this.autogrow) {
-        const autogrow = this.shadowRoot.querySelector(
-          '.grow-wrap > div'
-        ) as HTMLDivElement;
-        autogrow.innerText = this.value + String.fromCharCode(10);
-      }
+        if (this.textarea && this.autogrow) {
+          const autogrow = this.shadowRoot.querySelector(
+            '.grow-wrap > div'
+          ) as HTMLDivElement;
+          autogrow.innerText = this.value + String.fromCharCode(10);
+        }
 
-      if (this.cursorStart > -1 && this.cursorEnd > -1) {
-        this.inputElement.setSelectionRange(this.cursorStart, this.cursorEnd);
-        this.cursorStart = -1;
-        this.cursorEnd = -1;
+        if (this.cursorStart > -1 && this.cursorEnd > -1) {
+          this.inputElement.setSelectionRange(this.cursorStart, this.cursorEnd);
+          this.cursorStart = -1;
+          this.cursorEnd = -1;
+        }
       }
     }
   }
 
-  private onDateUpdated(dates: Date[], formattedDate: string) {
+  private onDateUpdated(dates: Date[], isoFormatDate: string) {
     if (dates.length > 0) {
+      this.isoFormattedDate = isoFormatDate;
       this.inputElement.value = this.dateElement.formatDate(
         dates[0],
         this.dateElement.altFormat
       );
-
-      this.setValue(formattedDate);
-      this.inputElement.blur();
     }
+  }
+
+  public getDisplayValue() {
+    return this.inputElement.value;
   }
 
   private onDateReady() {
     window.setTimeout(() => {
-      if (this.value) {
-        this.inputElement.value = this.dateElement.formatDate(
-          this.dateElement.parseDate(this.value),
-          this.dateElement.altFormat
-        );
-        this.dateElement.setDate(this.value);
-      }
+      if (this.dateElement) {
+        if (this.value) {
+          this.inputElement.value = this.dateElement.formatDate(
+            this.dateElement.parseDate(this.value),
+            this.dateElement.altFormat
+          );
+          this.dateElement.setDate(this.value);
+        }
 
-      this.loading = false;
+        this.loading = false;
+      }
     }, 0);
+  }
+
+  private onDateClose() {
+    if (this.isoFormattedDate) {
+      this.setValue(this.isoFormattedDate);
+      this.fireEvent('blur');
+    }
   }
 
   private handleClear(event: any): void {
@@ -501,9 +521,10 @@ export class TextInput extends FormElement {
           class="datepicker hidden"
           altInput
           altFormat="${this.datepicker ? 'F j, Y' : 'F j, Y h:i K'}"
-          dateFormat="${this.datepicker ? 'Y-m-d' : 'Y-m-d H:i'}"
+          dateFormat="${this.datepicker ? 'Y-m-d' : 'Z'}"
           .onValueUpdate=${this.onDateUpdated}
           .onReady=${this.onDateReady}
+          .onClose=${this.onDateClose}
           ?enableTime=${this.datetimepicker}
         ></lit-flatpickr>
       `;
@@ -524,6 +545,7 @@ export class TextInput extends FormElement {
           style=${styleMap(containerStyle)}
           @click=${this.handleContainerClick}
         >
+          <slot name="prefix"></slot>
           ${input} ${clear}
           <slot></slot>
         </div>

@@ -1,4 +1,4 @@
-import { LitElement } from 'lit-element';
+import { LitElement } from 'lit';
 import { CustomEventType } from './interfaces';
 
 export interface EventHandler {
@@ -9,7 +9,6 @@ export interface EventHandler {
 
 export class RapidElement extends LitElement {
   private eles: { [selector: string]: HTMLDivElement } = {};
-
   public getEventHandlers(): EventHandler[] {
     return [];
   }

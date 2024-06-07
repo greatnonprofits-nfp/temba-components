@@ -22,6 +22,19 @@ import { Omnibox } from './src/omnibox/Omnibox';
 import { Tip } from './src/tip/Tip';
 import { TembaMenu } from './src/list/TembaMenu';
 import { Anchor } from './src/anchor/Anchor';
+import { Dropdown } from './src/dropdown/Dropdown';
+import { TabPane } from './src/tabpane/TabPane';
+import { Tab } from './src/tabpane/Tab';
+import Label from './src/label/Label';
+import { ContactName } from './src/contacts/ContactName';
+import { ContactUrn } from './src/contacts/ContactUrn';
+import { ContactFields } from './src/contacts/ContactFields';
+import { ContactFieldEditor } from './src/contacts/ContactFieldEditor';
+
+import { ContactBadges } from './src/contacts/ContactBadges';
+import { ContactPending } from './src/contacts/ContactPending';
+import { ContactTickets } from './src/contacts/ContactTickets';
+import { TembaSlider } from './src/slider/TembaSlider';
 
 export function addCustomElement(name: string, comp: any) {
   if (!window.customElements.get(name)) {
@@ -41,6 +54,10 @@ addCustomElement('temba-loading', Loading);
 addCustomElement('temba-button', Button);
 addCustomElement('temba-omnibox', Omnibox);
 addCustomElement('temba-tip', Tip);
+addCustomElement('temba-contact-name', ContactName);
+addCustomElement('temba-contact-field', ContactFieldEditor);
+addCustomElement('temba-contact-fields', ContactFields);
+addCustomElement('temba-urn', ContactUrn);
 
 addCustomElement('temba-field', FormField);
 addCustomElement('temba-dialog', Dialog);
@@ -51,6 +68,14 @@ addCustomElement('temba-contact-chat', ContactChat);
 addCustomElement('temba-contact-details', ContactDetails);
 addCustomElement('temba-ticket-list', TicketList);
 addCustomElement('temba-list', TembaList);
+addCustomElement('temba-label', Label);
 addCustomElement('temba-menu', TembaMenu);
 addCustomElement('temba-contact-search', ContactSearch);
 addCustomElement('temba-icon', VectorIcon);
+addCustomElement('temba-dropdown', Dropdown);
+addCustomElement('temba-tabs', TabPane);
+addCustomElement('temba-tab', Tab);
+addCustomElement('temba-contact-groups', ContactBadges);
+addCustomElement('temba-contact-pending', ContactPending);
+addCustomElement('temba-contact-tickets', ContactTickets);
+addCustomElement('temba-slider', TembaSlider);

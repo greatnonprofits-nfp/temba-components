@@ -1,5 +1,5 @@
-import { css, html, property, TemplateResult } from 'lit-element';
-import { reset } from 'sinon';
+import { css, html, TemplateResult } from 'lit';
+import { property } from 'lit/decorators';
 import { CustomEventType } from '../interfaces';
 import { RapidElement } from '../RapidElement';
 import { fetchResultsPage, ResultsPage } from '../utils';
@@ -269,10 +269,12 @@ export class TembaList extends RapidElement {
 
             // make sure our focused item is visible
             window.setTimeout(() => {
-              const option = this.shadowRoot
-                .querySelector('temba-options')
-                .shadowRoot.querySelector('.option.focused');
-              option.scrollIntoView({ block: 'end', inline: 'nearest' });
+              const options = this.shadowRoot.querySelector('temba-options');
+              if (options) {
+                const option =
+                  options.shadowRoot.querySelector('.option.focused');
+                option.scrollIntoView({ block: 'end', inline: 'nearest' });
+              }
             }, 0);
           }
         }
@@ -321,7 +323,7 @@ export class TembaList extends RapidElement {
         pages++;
       } catch (error) {
         // aborted
-        reset();
+        this.reset();
         return;
       }
 
