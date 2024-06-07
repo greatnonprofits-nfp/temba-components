@@ -1,17 +1,18 @@
 import { TemplateResult, css, html } from 'lit';
-import { property } from 'lit/decorators';
-import { ifDefined } from 'lit-html/directives/if-defined';
+import { property } from 'lit/decorators.js';
+import { ifDefined } from 'lit-html/directives/if-defined.js';
 import { TextInput } from '../textinput/TextInput';
 import {
   renderCompletionOption,
   updateInputElementWithCompletion,
-  executeCompletionQuery,
+  executeCompletionQuery
 } from './helpers';
 
 import { FormElement } from '../FormElement';
 import { CompletionOption, Position } from '../interfaces';
 import { Store } from '../store/Store';
-import { styleMap } from 'lit-html/directives/style-map';
+import { styleMap } from 'lit-html/directives/style-map.js';
+import { msg } from '@lit/localize';
 
 /**
  * Completion is a text input that handles excellent completion options in a popup
@@ -76,6 +77,9 @@ export class Completion extends FormElement {
     `;
   }
 
+  @property({ type: Number })
+  maxLength: number;
+
   @property({ type: Boolean })
   session: boolean;
 
@@ -114,6 +118,9 @@ export class Completion extends FormElement {
 
   @property({ type: String })
   counter: string;
+
+  @property({ type: Boolean })
+  autogrow = false;
 
   private hiddenElement: HTMLInputElement;
   private query: string;
@@ -166,6 +173,9 @@ export class Completion extends FormElement {
 
   private executeQuery(ele: TextInput) {
     const store: Store = document.querySelector('temba-store');
+    if (!ele.inputElement) {
+      return;
+    }
     const result = executeCompletionQuery(
       ele.inputElement,
       store,
@@ -230,13 +240,23 @@ export class Completion extends FormElement {
     }
   }
 
+  public focus() {
+    super.focus();
+    const input = this.shadowRoot.querySelector('temba-textinput') as TextInput;
+    if (input) {
+      input.focus();
+    }
+  }
+
   public render(): TemplateResult {
     const anchorStyles = this.anchorPosition
       ? {
           top: `${this.anchorPosition.top}px`,
-          left: `${this.anchorPosition.left}px`,
+          left: `${this.anchorPosition.left}px`
         }
       : {};
+
+    const visible = this.options && this.options.length > 0;
 
     return html`
       <temba-field
@@ -257,7 +277,9 @@ export class Completion extends FormElement {
             @click=${this.handleClick}
             @input=${this.handleInput}
             @blur=${this.handleOptionCanceled}
+            maxlength="${ifDefined(this.maxLength)}"
             .value=${this.value}
+            ?autogrow=${this.autogrow}
             ?textarea=${this.textarea}
             ?submitOnEnter=${this.submitOnEnter}
           >
@@ -268,7 +290,7 @@ export class Completion extends FormElement {
             .renderOption=${renderCompletionOption}
             .anchorTo=${this.anchorElement}
             .options=${this.options}
-            ?visible=${this.options && this.options.length > 0}
+            ?visible=${visible}
           >
             ${this.currentFunction
               ? html`
@@ -277,7 +299,9 @@ export class Completion extends FormElement {
                   </div>
                 `
               : null}
-            <div class="footer">Tab to complete, enter to select</div>
+            <div class="footer" style="${!visible ? 'display:none' : null}">
+              ${msg('Tab to complete, enter to select')}
+            </div>
           </temba-options>
         </div>
       </temba-field>

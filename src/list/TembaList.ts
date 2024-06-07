@@ -1,5 +1,5 @@
 import { css, html, TemplateResult } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { CustomEventType } from '../interfaces';
 import { RapidElement } from '../RapidElement';
 import { Store } from '../store/Store';
@@ -44,6 +44,9 @@ export class TembaList extends RapidElement {
   @property({ type: Boolean })
   paused = false;
 
+  @property({ type: Boolean })
+  internalFocusDisabled = false;
+
   @property({ attribute: false })
   getNextRefresh: (firstOption: any) => any;
 
@@ -77,14 +80,8 @@ export class TembaList extends RapidElement {
   // used for testing only
   preserve: boolean;
 
-  // http promise to monitor for completeness
-  public httpComplete: Promise<void>;
-
   static get styles() {
     return css`
-      :host {
-      }
-
       temba-options {
         display: block;
         width: 100%;
@@ -126,13 +123,15 @@ export class TembaList extends RapidElement {
     super.updated(changedProperties);
 
     if (changedProperties.has('endpoint') && this.endpoint) {
-      // if our tests aren't preserving our properties, reset
-      if (!this.preserve) {
-        this.reset();
-        this.loading = true;
-      }
+      this.reset();
+      this.loading = true;
+      this.fetchItems();
+    }
 
-      this.httpComplete = this.fetchItems();
+    if (changedProperties.has('loading')) {
+      if (!this.loading) {
+        this.fireCustomEvent(CustomEventType.FetchComplete);
+      }
     }
 
     if (
@@ -142,10 +141,8 @@ export class TembaList extends RapidElement {
       this.refreshTop();
     }
 
-    if (changedProperties.has('mostRecentItem')) {
-      if (this.mostRecentItem) {
-        this.fireCustomEvent(CustomEventType.Refreshed);
-      }
+    if (changedProperties.has('mostRecentItem') && this.mostRecentItem) {
+      this.fireCustomEvent(CustomEventType.Refreshed);
     }
 
     if (changedProperties.has('cursorIndex')) {
@@ -153,6 +150,10 @@ export class TembaList extends RapidElement {
         this.selected = this.items[this.cursorIndex];
         this.handleSelected(this.selected);
       }
+    }
+
+    if (changedProperties.has('items')) {
+      //
     }
   }
 
@@ -177,7 +178,7 @@ export class TembaList extends RapidElement {
   }
 
   public setSelection(value: string) {
-    const index = this.items.findIndex(item => {
+    const index = this.items.findIndex((item) => {
       return this.getValue(item) === value;
     });
     this.cursorIndex = index;
@@ -187,7 +188,7 @@ export class TembaList extends RapidElement {
   }
 
   public getItemIndex(value: string) {
-    return this.items.findIndex(option => this.getValue(option) === value);
+    return this.items.findIndex((option) => this.getValue(option) === value);
   }
 
   public removeItem(value: string) {
@@ -258,7 +259,7 @@ export class TembaList extends RapidElement {
           }
           const newValue = this.getValue(newOption);
           const removeIndex = items.findIndex(
-            option => this.getValue(option) === newValue
+            (option) => this.getValue(option) === newValue
           );
 
           if (removeIndex > -1) {
@@ -286,7 +287,7 @@ export class TembaList extends RapidElement {
           const prevValue = this.getValue(prevItem);
           if (prevValue !== this.getValue(newItem)) {
             const newIndex = newItems.findIndex(
-              option => this.getValue(option) === prevValue
+              (option) => this.getValue(option) === prevValue
             );
             this.cursorIndex = newIndex;
 
@@ -296,7 +297,9 @@ export class TembaList extends RapidElement {
               if (options) {
                 const option =
                   options.shadowRoot.querySelector('.option.focused');
-                option.scrollIntoView({ block: 'end', inline: 'nearest' });
+                if (option) {
+                  option.scrollIntoView({ block: 'end', inline: 'nearest' });
+                }
               }
             }, 0);
           }
@@ -305,7 +308,7 @@ export class TembaList extends RapidElement {
         this.items = newItems;
       }
     } catch (error) {
-      console.error(error);
+      // console.error(error);
     }
   }
 
@@ -347,8 +350,7 @@ export class TembaList extends RapidElement {
       } catch (error) {
         // aborted
         this.reset();
-
-        console.log('error, resetting');
+        console.log(error);
         return;
       }
 
@@ -373,7 +375,7 @@ export class TembaList extends RapidElement {
       newItem &&
       this.getValue(newItem) !== this.getValue(this.selected)
     ) {
-      const index = fetchedItems.findIndex(item => {
+      const index = fetchedItems.findIndex((item) => {
         return this.getValue(item) === this.getValue(this.selected);
       });
 
@@ -403,7 +405,7 @@ export class TembaList extends RapidElement {
       this.setSelection(this.nextSelection);
       this.nextSelection = false;
     } else {
-      if (this.cursorIndex === -1) {
+      if (this.cursorIndex === -1 && !this.isMobile()) {
         this.cursorIndex = 0;
       }
     }
@@ -414,6 +416,12 @@ export class TembaList extends RapidElement {
     if (this.value) {
       this.setSelection(this.value);
       this.value = null;
+    } else if (this.isMobile() && !this.selected) {
+      this.cursorIndex = -1;
+      this.value = null;
+      this.selected = null;
+      const evt = new Event('change', { bubbles: true });
+      this.dispatchEvent(evt);
     }
 
     return Promise.resolve();
@@ -447,7 +455,7 @@ export class TembaList extends RapidElement {
     return '';
   }
 
-  private handleSelection(event: CustomEvent) {
+  protected handleSelection(event: CustomEvent) {
     const { selected, index } = event.detail;
 
     this.selected = selected;
@@ -467,6 +475,7 @@ export class TembaList extends RapidElement {
         ?hideShadow=${this.hideShadow}
         ?collapsed=${this.collapsed}
         ?loading=${this.loading}
+        ?internalFocusDisabled=${this.internalFocusDisabled}
         .renderOption=${this.renderOption}
         .renderOptionDetail=${this.renderOptionDetail}
         @temba-scroll-threshold=${this.handleScrollThreshold}

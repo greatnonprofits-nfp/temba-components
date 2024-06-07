@@ -1,16 +1,20 @@
 import { PropertyValueMap } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { CustomEventType } from '../interfaces';
-import { RapidElement } from '../RapidElement';
+
 import { Store } from './Store';
+import { StoreMonitorElement } from './StoreMonitorElement';
 
 /**
  * StoreElement is a listener for a given endpoint that re-renders
  * when the underlying store element changes
  */
-export class StoreElement extends RapidElement {
+export class StoreElement extends StoreMonitorElement {
   @property({ type: String })
   url: string;
+
+  @property({ type: Boolean })
+  showLoading = false;
 
   @property({ type: Object, attribute: false })
   data: any;
@@ -24,14 +28,18 @@ export class StoreElement extends RapidElement {
   public refresh() {
     this.store.makeRequest(this.url, {
       prepareData: this.prepareData,
-      force: true,
+      force: true
     });
   }
 
-  private handleStoreUpdated(event: CustomEvent) {
+  protected storeUpdated(event: CustomEvent) {
     if (event.detail.url === this.url) {
+      const previous = this.data;
       this.data = event.detail.data;
-      this.fireCustomEvent(CustomEventType.Refreshed, { data: this.data });
+      this.fireCustomEvent(CustomEventType.Refreshed, {
+        data: event.detail.data,
+        previous
+      });
     }
   }
 
@@ -42,30 +50,14 @@ export class StoreElement extends RapidElement {
     if (properties.has('url')) {
       if (this.url) {
         this.store.makeRequest(this.url, { prepareData: this.prepareData });
+      } else {
+        this.data = null;
       }
     }
   }
 
   connectedCallback(): void {
     super.connectedCallback();
-    this.store = document.querySelector('temba-store') as Store;
-    this.handleStoreUpdated = this.handleStoreUpdated.bind(this);
     this.prepareData = this.prepareData.bind(this);
-    if (this.store) {
-      this.store.addEventListener(
-        CustomEventType.StoreUpdated,
-        this.handleStoreUpdated
-      );
-    }
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    if (this.store) {
-      this.store.removeEventListener(
-        CustomEventType.StoreUpdated,
-        this.handleStoreUpdated
-      );
-    }
   }
 }

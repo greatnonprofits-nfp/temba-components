@@ -27,7 +27,7 @@ describe('temba-checkbox', () => {
 
   it('fires change event on click', async () => {
     // eslint-disable-next-line no-async-promise-executor
-    return new Promise<void>(async resolve => {
+    return new Promise<void>(async (resolve) => {
       const checkbox: Checkbox = await fixture(html`
         <temba-checkbox label="My Checkbox"></temba-checkbox>
       `);
@@ -97,5 +97,72 @@ describe('temba-checkbox', () => {
       'checkbox/checkbox-whitespace-label-no-background-hover',
       getClip(el)
     );
+  });
+
+  it('submits as boolean without value', async () => {
+    const form = (await fixture(html`
+      <form>
+        <temba-checkbox name="my-cb"></temba-checkbox>
+      </form>
+    `)) as HTMLFormElement;
+
+    // if we didn't click it, it shouldn't be in the form data
+    let data = new FormData(form);
+    expect(data.get('my-cb')).to.equal(null);
+
+    // click our checkbox
+    const checkbox = form.querySelector('temba-checkbox') as Checkbox;
+    await click('temba-checkbox');
+    expect(checkbox.checked).to.equal(true);
+
+    // clicking a non-value checkbox should set it to 1
+    data = new FormData(form);
+    expect(data.get('my-cb')).to.equal('1');
+  });
+
+  it('supports custom values', async () => {
+    const form = (await fixture(html`
+      <form>
+        <temba-checkbox name="my-cb" value="3"></temba-checkbox>
+      </form>
+    `)) as HTMLFormElement;
+
+    // if we didn't click it, it shouldn't be in the form data
+    let data = new FormData(form);
+    expect(data.get('my-cb')).to.equal(null);
+
+    // click our checkbox
+    const checkbox = form.querySelector('temba-checkbox') as Checkbox;
+    await click('temba-checkbox');
+    expect(checkbox.checked).to.equal(true);
+
+    // clicking a non-value checkbox should set it to 1
+    data = new FormData(form);
+    expect(data.get('my-cb')).to.equal('3');
+  });
+
+  it('supports programmtically updated values', async () => {
+    // start with empty value
+    const form = (await fixture(html`
+      <form>
+        <temba-checkbox name="my-cb"></temba-checkbox>
+      </form>
+    `)) as HTMLFormElement;
+
+    // update our value directly
+    const checkbox = form.querySelector('temba-checkbox') as Checkbox;
+    checkbox.value = '5';
+
+    // we set a custom value, but we still aren't checked
+    let data = new FormData(form);
+    expect(data.get('my-cb')).to.equal(null);
+
+    // click our checkbox
+    await click('temba-checkbox');
+    expect(checkbox.checked).to.equal(true);
+
+    // clicking a non-value checkbox should set it to 1
+    data = new FormData(form);
+    expect(data.get('my-cb')).to.equal('5');
   });
 });

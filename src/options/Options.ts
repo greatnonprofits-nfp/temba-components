@@ -1,13 +1,13 @@
 import { TemplateResult, html, css } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { CustomEventType } from '../interfaces';
 import { RapidElement, EventHandler } from '../RapidElement';
-import { styleMap } from 'lit-html/directives/style-map';
+import { styleMap } from 'lit-html/directives/style-map.js';
 import {
   getClasses,
   getScrollParent,
   isElementVisible,
-  throttle,
+  throttle
 } from '../utils';
 
 export class Options extends RapidElement {
@@ -25,8 +25,6 @@ export class Options extends RapidElement {
         transition: transform var(--transition-speed)
             cubic-bezier(0.71, 0.18, 0.61, 1.33),
           opacity var(--transition-speed) cubic-bezier(0.71, 0.18, 0.61, 1.33);
-        z-index: 10000;
-        pointer-events: none;
         opacity: 0;
         border: 1px transparent;
       }
@@ -47,7 +45,6 @@ export class Options extends RapidElement {
 
       :host([block]) .options-scroll {
         height: 100%;
-        z-index: 9000;
         visibility: visible;
         overflow-y: auto;
         flex-grow: 1;
@@ -100,11 +97,10 @@ export class Options extends RapidElement {
       }
 
       .show {
-        z-index: 10000;
         transform: scaleY(1) translateY(0);
         border: 1px solid var(--color-widget-border);
-        pointer-events: auto;
         opacity: 1;
+        z-index: 1;
       }
 
       .option {
@@ -128,11 +124,6 @@ export class Options extends RapidElement {
         -moz-hyphens: auto;
         -webkit-hyphens: auto;
         hyphens: auto;
-      }
-
-      .option.focused {
-        background: var(--color-selection);
-        color: var(--color-text-dark);
       }
 
       .option .detail {
@@ -174,6 +165,16 @@ export class Options extends RapidElement {
       .loading .loader-bar {
         max-height: 1.1em;
       }
+
+      .option:hover {
+        background: var(--option-hover-bg);
+        color: var(--option-hover-text);
+      }
+
+      .option.focused {
+        background: var(--color-selection);
+        color: var(--color-text-dark);
+      }
     `;
   }
 
@@ -212,6 +213,9 @@ export class Options extends RapidElement {
 
   @property({ type: Number })
   cursorIndex = -1;
+
+  @property({ type: Boolean })
+  internalFocusDisabled = false;
 
   @property({ type: Array })
   options: any[];
@@ -301,7 +305,7 @@ export class Options extends RapidElement {
     super.updated(changedProperties);
 
     // if our cursor changed, lets make sure our scrollbox is showing it
-    if (changedProperties.has('cursorIndex')) {
+    if (!this.internalFocusDisabled && changedProperties.has('cursorIndex')) {
       const focusedOption = this.shadowRoot.querySelector(
         `div[data-option-index="${this.cursorIndex}"]`
       ) as HTMLDivElement;
@@ -326,7 +330,7 @@ export class Options extends RapidElement {
       }
 
       this.fireCustomEvent(CustomEventType.CursorChanged, {
-        index: this.cursorIndex,
+        index: this.cursorIndex
       });
     }
 
@@ -356,16 +360,18 @@ export class Options extends RapidElement {
           newCount > 0 &&
           !changedProperties.has('cursorIndex'))
       ) {
-        if (!this.block) {
-          this.cursorIndex = 0;
-        } else {
-          if (this.cursorIndex >= newCount) {
-            this.cursorIndex = newCount - 1;
+        if (!this.internalFocusDisabled) {
+          if (!this.block) {
+            this.cursorIndex = 0;
+          } else {
+            if (this.cursorIndex >= newCount) {
+              this.cursorIndex = newCount - 1;
+            }
           }
-        }
 
-        if (this.block) {
-          this.handleSelection(false);
+          if (this.block) {
+            this.handleSelection(false);
+          }
         }
       }
 
@@ -421,37 +427,48 @@ export class Options extends RapidElement {
   }
 
   private handleSelection(tabbed = false, index = -1) {
-    if (index === -1) {
-      index = this.cursorIndex;
+    if (!this.internalFocusDisabled) {
+      if (index === -1) {
+        index = this.cursorIndex;
+      }
     }
 
     const selected = this.options[index];
     this.fireCustomEvent(CustomEventType.Selection, {
       selected,
       tabbed,
-      index,
+      index
     });
   }
 
   private moveCursor(direction: number): void {
-    const newIndex = Math.max(
-      Math.min(this.cursorIndex + direction, this.options.length - 1),
-      0
-    );
-    this.setCursor(newIndex);
+    if (!this.internalFocusDisabled) {
+      const newIndex = Math.max(
+        Math.min(this.cursorIndex + direction, this.options.length - 1),
+        0
+      );
+      this.setCursor(newIndex);
+    }
   }
 
   private setCursor: (index: number) => void = throttle(function (
     index: number
   ) {
-    if (index !== this.cursorIndex) {
-      this.cursorIndex = index;
+    if (!this.internalFocusDisabled) {
+      if (index !== this.cursorIndex) {
+        this.cursorIndex = index;
+      }
     }
   },
   50);
 
+  public scrollToTop() {
+    const scrollBox = this.shadowRoot.querySelector('.options-scroll');
+    scrollBox.scrollTop = 0;
+  }
+
   private handleKeyDown(evt: KeyboardEvent) {
-    if (this.block && !this.isFocused()) {
+    if (this.internalFocusDisabled || (this.block && !this.isFocused())) {
       return;
     }
 
@@ -549,13 +566,13 @@ export class Options extends RapidElement {
       {
         event: 'keydown',
         method: this.handleKeyDown,
-        isDocument: true,
+        isDocument: true
       },
       {
         event: 'scroll',
         method: this.calculatePosition,
-        isDocument: true,
-      },
+        isDocument: true
+      }
     ];
   }
 
@@ -598,11 +615,17 @@ export class Options extends RapidElement {
     }
 
     const containerStyle = {
-      top: this.top ? `${this.top}px` : '0px',
-      left: this.left ? `${this.left}px` : '0px',
       'margin-left': `${this.marginHorizontal}px`,
-      'margin-top': `${vertical}px`,
+      'margin-top': `${vertical}px`
     };
+
+    if (this.top) {
+      containerStyle['top'] = `${this.top}px`;
+    }
+
+    if (this.left) {
+      containerStyle['left'] = `${this.left}px`;
+    }
 
     const optionsStyle = {};
     if (this.width) {
@@ -616,11 +639,11 @@ export class Options extends RapidElement {
       anchored: !this.block,
       loading: this.loading,
       shadow: !this.hideShadow,
-      bordered: this.hideShadow,
+      bordered: this.hideShadow
     });
 
     const classesInner = getClasses({
-      options: true,
+      options: true
     });
 
     let options = this.options || [];
@@ -646,7 +669,10 @@ export class Options extends RapidElement {
                 @mousemove=${this.handleMouseMove}
                 @click=${this.handleOptionClick}
                 @mousedown=${this.handleMouseDown}
-                class="option ${index === this.cursorIndex ? 'focused' : ''}"
+                class="option ${index === this.cursorIndex &&
+                !this.internalFocusDisabled
+                  ? 'focused'
+                  : ''}"
               >
                 ${this.resolvedRenderOption(option, index === this.cursorIndex)}
               </div>`;

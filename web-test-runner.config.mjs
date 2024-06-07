@@ -1,4 +1,7 @@
+/* eslint-disable no-async-promise-executor */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { puppeteerLauncher } from '@web/test-runner-puppeteer';
+import { esbuildPlugin } from '@web/dev-server-esbuild';
 import fs from 'fs';
 import * as path from 'path';
 import * as pngs from 'pngjs';
@@ -118,16 +121,16 @@ const checkScreenshot = async (filename, excluded, threshold) => {
     const img1 = fs
       .createReadStream(truthImg)
       .pipe(new PNG())
-      .on('parsed', await doneReading);
+      .on('parsed', doneReading);
 
     const img2 = fs
       .createReadStream(testImg)
       .pipe(new PNG())
-      .on('parsed', await doneReading);
+      .on('parsed', doneReading);
   });
 };
 
-const wireScreenshots = async (page, context) => {
+const wireScreenshots = async (page, context, wait) => {
   // clear out any past tests
   const diffs = path.resolve(SCREENSHOTS, DIFF);
   const tests = path.resolve(SCREENSHOTS, TEST);
@@ -135,12 +138,16 @@ const wireScreenshots = async (page, context) => {
   rimraf.sync(diffs);
   rimraf.sync(tests);
 
-  await page.exposeFunction(
+  page.exposeFunction(
     'matchPageSnapshot',
     (filename, clip, excluded, threshold) => {
       return new Promise(async (resolve, reject) => {
         const testFile = await getPath(TEST, filename);
         const truthFile = await getPath(TRUTH, filename);
+
+        if (wait) {
+          await page.waitForNetworkIdle();
+        }
 
         if (!(await fileExists(truthFile))) {
           // no truth yet, record it
@@ -187,32 +194,42 @@ const wireScreenshots = async (page, context) => {
     }
   );
 
+  await page.exposeFunction('waitForNetworkIdle', async () => {
+    await page.waitForNetworkIdle();
+  });
+
   await page.exposeFunction('setViewport', async options => {
     await page.setViewport(options);
   });
 
   await page.exposeFunction('waitFor', millis => {
-    return new Promise(async (resolve, reject) => {
-      await page.waitForTimeout(millis);
-      resolve();
-    });
+    return page.waitForTimeout(millis);
   });
 
   await page.exposeFunction('moveMouse', (x, y) => {
     return new Promise(async (resolve, reject) => {
-      await page.mouse.move(x, y);
+      await page.mouse.move(x, y, { steps: 5 });
       resolve();
     });
   });
 
-  await page.exposeFunction('mouseDown', async() => {
+  await page.exposeFunction('mouseClick', (x, y) => {
+    return new Promise(async (resolve, reject) => {
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.up();
+      resolve();
+    });
+  });
+
+  await page.exposeFunction('mouseDown', async () => {
     return new Promise(async (resolve, reject) => {
       await page.mouse.down();
       resolve();
     });
   });
 
-  await page.exposeFunction('mouseUp', async() => {
+  await page.exposeFunction('mouseUp', async () => {
     return new Promise(async (resolve, reject) => {
       await page.mouse.up();
       resolve();
@@ -229,15 +246,30 @@ const wireScreenshots = async (page, context) => {
 
   await page.exposeFunction(
     'typeInto',
-    async (selector, text, replace = false) => {
-      // console.log("frames", page.frames().length);
+    async (selector, text, replace = false, enter = false) => {
+      const selectors = selector.split(':');
       const frame = await page.frames().find(f => {
         return true;
       });
-      const element = await frame.$(selector);
+      await frame.$(selectors[0]);
 
+      let codeSelector = `document.querySelector("${selectors[0]}")`;
+      selectors.shift();
+      if (selectors.length > 0) {
+        codeSelector +=
+          '.' +
+          selectors
+            .map(entry => `shadowRoot.querySelector("${entry}")`)
+            .join('.');
+      }
+
+      const element = await page.evaluateHandle(codeSelector);
       await element.click({ clickCount: replace ? 3 : 1 });
       await page.keyboard.type(text);
+
+      if (enter) {
+        await page.keyboard.press('Enter');
+      }
     }
   );
 
@@ -254,8 +286,15 @@ const wireScreenshots = async (page, context) => {
 
 export default {
   rootDir: './',
-  files: 'out-tsc/**/test/**/*.test.js',
+  files: '**/test/**/*.test.ts',
   nodeResolve: true,
+
+  testFramework: {
+    config: {
+      timeout: '10000',
+    },
+  },
+
   plugins: [
     {
       name: 'add-style',
@@ -270,6 +309,8 @@ export default {
         }
       },
     },
+    esbuildPlugin({ ts: true }),
+
     /* importMapsPlugin({
       inject: {
         importMap: {
@@ -290,32 +331,25 @@ export default {
           '--force-color-profile=srgb',
           '--hide-scrollbars',
           '--disable-web-security',
-          '--force-device-scale-factor=1'
+          '--force-device-scale-factor=1',
+          '--no-sandbox',
         ],
         headless: true,
       },
-      createBrowserContext: ({ browser, config }) =>
-        browser.defaultBrowserContext(),
       createPage: async ({ context, config }) => {
+        const wait = !(config['unknown'] || []).includes('--fast');
         const page = await context.newPage();
-        await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36");
-        await page.exposeFunction('readStaticFile', filename => {
-          try {
-            var content = fs.readFileSync('./' + filename, 'utf8');
-            return content;
-          } catch (err) {
-            console.log(err);
-          }
-          return 'Not Found';
-        });
-
+        await page.setUserAgent(
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36'
+        );
         await page.once('load', async () => {
           await page.addScriptTag({
             content: `
             window.watched = ${config.watch};
           `,
           });
-          await wireScreenshots(page, context);
+
+          await wireScreenshots(page, context, wait);
         });
 
         await page.emulateTimezone('GMT');

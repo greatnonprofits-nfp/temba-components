@@ -1,13 +1,49 @@
-import { LitElement } from 'lit';
+import { LitElement, PropertyValueMap } from 'lit';
 import { CustomEventType } from './interfaces';
+import { Color, log } from './utils';
+
+const showUpdates = (
+  ele: HTMLElement,
+  changes: Map<PropertyKey, unknown>,
+  firstUpdated = false
+) => {
+  if (ele['DEBUG_UPDATES'] || ele['DEBUG']) {
+    if (changes.size > 0) {
+      const fromto = {};
+      for (const key of changes.keys()) {
+        fromto[key] = [changes[key], ele[key]];
+      }
+
+      log(ele.tagName, Color.PURPLE, [
+        firstUpdated ? '<first-updated>' : '<updated>',
+        fromto
+      ]);
+    }
+  }
+};
+
+const showEvent = (ele: HTMLElement, type: string, details = undefined) => {
+  if (ele['DEBUG_EVENTS'] || ele['DEBUG']) {
+    if (details !== undefined) {
+      log(ele.tagName, Color.GREEN, [type, details]);
+    } else {
+      log(ele.tagName, Color.GREEN, [type]);
+    }
+  }
+};
 
 export interface EventHandler {
   event: string;
   method: EventListener;
   isDocument?: boolean;
+  isWindow?: boolean;
 }
 
 export class RapidElement extends LitElement {
+  DEBUG = false;
+  DEBUG_UPDATES = false;
+  DEBUG_EVENTS = false;
+
   private eles: { [selector: string]: HTMLDivElement } = {};
   public getEventHandlers(): EventHandler[] {
     return [];
@@ -19,6 +55,8 @@ export class RapidElement extends LitElement {
     for (const handler of this.getEventHandlers()) {
       if (handler.isDocument) {
         document.addEventListener(handler.event, handler.method.bind(this));
+      } else if (handler.isWindow) {
+        window.addEventListener(handler.event, handler.method.bind(this));
       } else {
         this.addEventListener(handler.event, handler.method.bind(this));
       }
@@ -29,6 +67,8 @@ export class RapidElement extends LitElement {
     for (const handler of this.getEventHandlers()) {
       if (handler.isDocument) {
         document.removeEventListener(handler.event, handler.method);
+      } else if (handler.isWindow) {
+        window.removeEventListener(handler.event, handler.method);
       } else {
         this.removeEventListener(handler.event, handler.method);
       }
@@ -36,20 +76,45 @@ export class RapidElement extends LitElement {
     super.disconnectedCallback();
   }
 
+  protected firstUpdated(
+    changes: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ): void {
+    super.firstUpdated(changes);
+    showUpdates(this, changes, true);
+  }
+
+  protected updated(
+    changes: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ): void {
+    super.updated(changes);
+    showUpdates(this, changes, false);
+  }
+
   public fireEvent(type: string): any {
+    showEvent(this, type);
+
     return this.dispatchEvent(
       new Event(type, {
         bubbles: true,
-        composed: true,
+        composed: true
       })
     );
   }
 
+  swallowEvent(event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
   public fireCustomEvent(type: CustomEventType, detail: any = {}): any {
+    if (this['DEBUG_EVENTS']) {
+      showEvent(this, type, detail);
+    }
+
     const event = new CustomEvent(type, {
       detail,
       bubbles: true,
-      composed: true,
+      composed: true
     });
 
     return this.dispatchEvent(event);
@@ -66,14 +131,16 @@ export class RapidElement extends LitElement {
       } else {
         const func = new Function(
           'event',
-          `with(document) {
-          with(this) {
-            let handler = ${ele.getAttribute('-' + event.type)};
-            if(typeof handler === 'function') { 
-              handler(event) ;
+          `
+          with(document) {
+            with(this) {
+              let handler = ${ele.getAttribute('-' + event.type)};
+              if(typeof handler === 'function') { 
+                handler(event);
+              }
             }
           }
-        }`
+        `
         );
         return func.call(ele, event);
       }
@@ -103,5 +170,20 @@ export class RapidElement extends LitElement {
       this.eles[selector] = ele;
     }
     return ele;
+  }
+
+  public stopEvent(event: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+  }
+
+  public isMobile() {
+    const win = window as any;
+    if (win.isMobile) {
+      return win.isMobile();
+    }
+    return false;
   }
 }

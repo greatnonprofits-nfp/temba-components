@@ -1,16 +1,16 @@
 import { TemplateResult, html, css } from 'lit';
-import { property } from 'lit/decorators';
-import { styleMap } from 'lit-html/directives/style-map';
+import { property } from 'lit/decorators.js';
+import { styleMap } from 'lit-html/directives/style-map.js';
 import { RapidElement } from '../RapidElement';
 import { Select } from '../select/Select';
+import { Icon } from '../vectoricon';
 
 enum OmniType {
   Group = 'group',
-  Contact = 'contact',
-  Urn = 'urn',
+  Contact = 'contact'
 }
 
-interface OmniOption {
+export interface OmniOption {
   id: string;
   name: string;
   type: OmniType;
@@ -23,7 +23,7 @@ interface OmniOption {
 const postNameStyle = {
   color: 'var(--color-text-dark)',
   padding: '0px 6px',
-  fontSize: '12px',
+  fontSize: '12px'
 };
 
 export class Omnibox extends RapidElement {
@@ -50,9 +50,6 @@ export class Omnibox extends RapidElement {
 
   @property({ type: Boolean })
   contacts = false;
-
-  @property({ type: Boolean })
-  urns = false;
 
   @property({ type: Array })
   value: OmniOption[] = [];
@@ -81,6 +78,9 @@ export class Omnibox extends RapidElement {
   @property({ type: String })
   label: string;
 
+  @property({ type: String, attribute: 'info_text' })
+  infoText = '';
+
   /** An option in the drop down */
   private renderOption(option: OmniOption): TemplateResult {
     return html`
@@ -101,7 +101,7 @@ export class Omnibox extends RapidElement {
 
     if (option.urn && option.type === OmniType.Contact) {
       if (option.urn !== option.name) {
-        return html` <div style=${styleMap(style)}>${option.urn}</div> `;
+        return html`<div style=${styleMap(style)}>${option.urn}</div>`;
       }
     }
 
@@ -140,11 +140,11 @@ export class Omnibox extends RapidElement {
 
   private getIcon(option: OmniOption): TemplateResult {
     if (option.type === OmniType.Group) {
-      return html` <temba-icon name="users" /> `;
+      return html`<temba-icon name="${Icon.group}"></temba-icon>`;
     }
 
     if (option.type === OmniType.Contact) {
-      return html` <temba-icon name="user" /> `;
+      return html`<temba-icon name="${Icon.contact}"></temba-icon>`;
     }
   }
 
@@ -159,26 +159,16 @@ export class Omnibox extends RapidElement {
       types += 'c';
     }
 
-    if (this.urns) {
-      types += 'u';
-    }
-
     return endpoint + types;
-  }
-
-  /** If we support urns, let them enter an arbitrary number */
-  private createArbitraryOption(input: string): any {
-    if (this.urns) {
-      const num = parseFloat(input);
-      if (!isNaN(num) && isFinite(num)) {
-        return { id: 'tel:' + input, name: input, type: 'urn' };
-      }
-    }
   }
 
   public getValues(): any[] {
     const select = this.shadowRoot.querySelector('temba-select') as Select;
     return select.values;
+  }
+
+  public isMatch() {
+    return true;
   }
 
   public render(): TemplateResult {
@@ -196,11 +186,14 @@ export class Omnibox extends RapidElement {
         .values=${this.value}
         .renderOption=${this.renderOption.bind(this)}
         .renderSelectedItem=${this.renderSelection.bind(this)}
-        .createArbitraryOption=${this.createArbitraryOption.bind(this)}
         .inputRoot=${this}
+        .isMatch=${this.isMatch}
+        .infoText=${this.infoText}
         searchable
         searchOnFocus
         multi
+        ><div slot="right">
+          <slot name="right"></slot></div
       ></temba-select>
     `;
   }

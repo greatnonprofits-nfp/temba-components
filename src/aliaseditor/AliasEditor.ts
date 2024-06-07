@@ -2,10 +2,11 @@ import { css, html, LitElement, TemplateResult } from 'lit';
 import { FeatureProperties } from '../interfaces';
 import { getUrl, postJSON, WebResponse } from '../utils';
 import { TextInput } from '../textinput/TextInput';
-import { styleMap } from 'lit-html/directives/style-map';
-import { FormElement } from '../FormElement';
+import { styleMap } from 'lit-html/directives/style-map.js';
+import { Icon } from '../vectoricon';
 
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
+import { Select } from '../select/Select';
 
 export class AliasEditor extends LitElement {
   static get styles() {
@@ -118,8 +119,8 @@ export class AliasEditor extends LitElement {
       }
 
       leaflet-map {
-        height: 250px;
-        width: 450px;
+        height: 600px;
+        width: 800px;
         border: 0px solid #999;
         border-radius: var(--curvature);
       }
@@ -193,7 +194,7 @@ export class AliasEditor extends LitElement {
   private handleSearchSelection(evt: CustomEvent) {
     const selection = evt.detail.selected as FeatureProperties;
     this.showAliasDialog(selection);
-    const select = this.shadowRoot.querySelector('temba-select') as FormElement;
+    const select = this.shadowRoot.querySelector('temba-select') as Select;
     select.clear();
   }
 
@@ -259,7 +260,7 @@ export class AliasEditor extends LitElement {
                       evt.stopPropagation();
                     }}
                   >
-                    <temba-icon name="edit" />
+                    <temba-icon name="${Icon.updated}" />
                   </div>
                 `
               : ''}
@@ -347,7 +348,7 @@ export class AliasEditor extends LitElement {
   private renderOptionDetail(option: FeatureProperties): TemplateResult {
     const labelStyles = {
       marginTop: '3px',
-      marginRight: '3px',
+      marginRight: '3px'
     };
 
     const aliasList = option.aliases.split('\n');

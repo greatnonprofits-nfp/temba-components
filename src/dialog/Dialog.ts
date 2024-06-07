@@ -1,17 +1,30 @@
-import { property } from 'lit/decorators';
-import { TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators.js';
+import { TemplateResult, html, css, PropertyValueMap } from 'lit';
 import { Button } from '../button/Button';
-import { RapidElement } from '../RapidElement';
 import { CustomEventType } from '../interfaces';
-import { styleMap } from 'lit-html/directives/style-map';
+import { styleMap } from 'lit-html/directives/style-map.js';
 import { getClasses } from '../utils';
+import { ResizeElement } from '../ResizeElement';
 
-export class Dialog extends RapidElement {
+export enum ButtonType {
+  PRIMARY = 'primary',
+  SECONDARY = 'secondary',
+  DESTRUCTIVE = 'destructive'
+}
+export class DialogButton {
+  name?: string;
+  id?: string;
+  details?: any;
+  type?: string;
+  closes?: boolean;
+}
+
+export class Dialog extends ResizeElement {
   static get widths(): { [size: string]: string } {
     return {
       small: '400px',
       medium: '600px',
-      large: '655px',
+      large: '655px'
     };
   }
 
@@ -24,6 +37,10 @@ export class Dialog extends RapidElement {
         background: white;
       }
 
+      .flex-grow {
+        flex-grow: 1;
+      }
+
       .flex {
         display: flex;
         flex-direction: column;
@@ -32,10 +49,28 @@ export class Dialog extends RapidElement {
         left: 0px;
         top: 0px;
         align-items: center;
+        height: 100vh;
       }
 
-      .flex-grow {
+      .mobile .flex {
+        height: 100%;
+        position: fixed;
+      }
+
+      .mobile .grow-top {
+        flex-grow: 0;
+      }
+
+      .mobile .grow-bottom {
+        flex-grow: 0;
+      }
+
+      .grow-top {
         flex-grow: 1;
+      }
+
+      .grow-bottom {
+        flex-grow: 3;
       }
 
       .bottom-padding {
@@ -44,6 +79,7 @@ export class Dialog extends RapidElement {
 
       .dialog-mask {
         width: 100%;
+        height: 100%;
         background: rgba(0, 0, 0, 0.5);
         opacity: 0;
         position: fixed;
@@ -53,23 +89,28 @@ export class Dialog extends RapidElement {
         pointer-events: none;
       }
 
-      .dialog-container {
-        margin-top: -10000px;
+      .mobile.dialog-mask .dialog-container {
+        border-radius: 0px;
+      }
+
+      .dialog-mask .dialog-container {
         position: relative;
-        transition: transform cubic-bezier(0.71, 0.18, 0.61, 1.33)
-            var(--transition-speed),
+        transition: transform var(--transition-speed) var(--bounce),
           opacity ease-in-out calc(var(--transition-speed) - 50ms);
         border-radius: var(--curvature);
         box-shadow: 0px 0px 2px 4px rgba(0, 0, 0, 0.06);
         overflow: hidden;
-        transform: scale(0.7);
+        transform: scale(0.9) translatey(2em);
         background: white;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
       }
 
       .dialog-body {
         background: #fff;
-        max-height: 75vh;
         overflow-y: auto;
+        flex-grow: 1;
       }
 
       .dialog-mask.dialog-open {
@@ -82,12 +123,10 @@ export class Dialog extends RapidElement {
       }
 
       .dialog-mask.dialog-animation-end .dialog-container {
-        margin-top: 10vh;
         transform: scale(1) !important;
       }
 
       .dialog-mask.dialog-ready .dialog-container {
-        margin-top: 10vh;
         transform: none;
       }
 
@@ -96,18 +135,30 @@ export class Dialog extends RapidElement {
       }
 
       .header-text {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
         font-size: 20px;
         padding: 12px 20px;
-        font-weight: 300;
         color: var(--header-text);
         background: var(--header-bg);
+      }
+
+      .header-text .title {
+        flex-grow: 1;
+      }
+
+      .header-text .status {
+        font-size: 0.6em;
+        font-weight: bold;
       }
 
       .dialog-footer {
         background: var(--color-primary-light);
         padding: 10px;
         display: flex;
-        flex-flow: row-reverse;
+        flex-flow: row;
+        align-items: center;
       }
 
       temba-button {
@@ -195,6 +246,9 @@ export class Dialog extends RapidElement {
   @property()
   ready: boolean;
 
+  @property({ type: Array })
+  buttons: DialogButton[] = [];
+
   @property({ attribute: false })
   onButtonClicked: (button: Button) => void;
 
@@ -202,6 +256,25 @@ export class Dialog extends RapidElement {
 
   public constructor() {
     super();
+  }
+
+  protected firstUpdated(
+    changes: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ): void {
+    if (changes.has('cancelButtonName') && this.cancelButtonName) {
+      this.buttons.push({
+        name: this.cancelButtonName,
+        type: ButtonType.SECONDARY,
+        closes: true
+      });
+    }
+
+    if (changes.has('primaryButtonName') && this.primaryButtonName) {
+      this.buttons.push({
+        name: this.primaryButtonName,
+        type: ButtonType.PRIMARY
+      });
+    }
   }
 
   public updated(changedProperties: Map<string, any>) {
@@ -215,14 +288,12 @@ export class Dialog extends RapidElement {
           this.animationEnd = false;
         }, 400);
 
-        const scrollbarWidth = window.outerWidth - body.clientWidth;
         this.scrollOffset = -document.documentElement.scrollTop;
         body.style.position = 'fixed';
         body.style.overflowY = 'scroll';
         body.style.top = this.scrollOffset + 'px';
         body.style.width = '100%';
         body.style.overflowY = 'hidden';
-        body.style.paddingRight = scrollbarWidth + 'px';
       } else {
         body.style.position = '';
         body.style.overflowY = '';
@@ -269,8 +340,13 @@ export class Dialog extends RapidElement {
   public handleClick(evt: MouseEvent) {
     const button = evt.currentTarget as Button;
     if (!button.disabled) {
-      this.fireCustomEvent(CustomEventType.ButtonClicked, { button });
-      if (button.name === this.cancelButtonName) {
+      let detail: DialogButton = {};
+      if (button.index >= 0 && button.index < this.buttons.length) {
+        detail = this.buttons[button.index];
+      }
+
+      this.fireCustomEvent(CustomEventType.ButtonClicked, { button, detail });
+      if (button.name === this.cancelButtonName || (detail && detail.closes)) {
         this.open = false;
       }
     }
@@ -330,25 +406,27 @@ export class Dialog extends RapidElement {
   }
 
   public render(): TemplateResult {
-    const height = this.getDocumentHeight();
-
-    const maskStyle = {
-      height: `${height + 100}px`,
-    };
-
     const dialogStyle = {
       width: this.width,
       minWidth: '250px',
-      maxWidth: '600px',
+      maxWidth: '600px'
     };
     if (!this.width) {
       dialogStyle['width'] = Dialog.widths[this.size];
     }
 
+    if (this.isMobile()) {
+      dialogStyle['width'] = '100%';
+      dialogStyle['height'] = '100%';
+      delete dialogStyle['maxWidth'];
+    }
+
     const header = this.header
       ? html`
           <div class="dialog-header">
-            <div class="header-text">${this.header}</div>
+            <div class="header-text">
+              <div class="title">${this.header}</div>
+            </div>
           </div>
         `
       : null;
@@ -362,8 +440,8 @@ export class Dialog extends RapidElement {
           'dialog-loading': this.loading,
           'dialog-animation-end': this.animationEnd,
           'dialog-ready': this.ready,
+          mobile: this.isMobile()
         })}"
-        style=${styleMap(maskStyle)}
       >
         <div style="position: absolute; width: 100%;">
           <temba-loading
@@ -375,7 +453,9 @@ export class Dialog extends RapidElement {
         </div>
 
         <div class="flex">
-          <div class="flex-grow"></div>
+          <div class="grow-top" style="${
+            this.isMobile() ? 'flex-grow:0' : ''
+          }"></div>
           <div
             @keyup=${this.handleKeyUp}
             style=${styleMap(dialogStyle)}
@@ -388,30 +468,26 @@ export class Dialog extends RapidElement {
             </div>
 
             <div class="dialog-footer">
-                ${
-                  this.primaryButtonName
-                    ? html`
-                        <temba-button
-                          @click=${this.handleClick}
-                          .name=${this.primaryButtonName}
-                          ?destructive=${this.destructive}
-                          ?primary=${!this.destructive}
-                          ?submitting=${this.submitting}
-                          ?disabled=${this.disabled}
-                          >}</temba-button
-                        >
-                      `
-                    : null
-                }
-                <temba-button
-                  @click=${this.handleClick}
-                  name=${this.cancelButtonName}
-                  secondary
-                ></temba-button>
+              <div class="flex-grow">
+                <slot name="gutter"></slot>
+              </div>
+              ${this.buttons.map(
+                (button: DialogButton, index) => html`
+                  <temba-button
+                    name=${button.name}
+                    ?destructive=${button.type == 'primary' && this.destructive}
+                    ?primary=${button.type == 'primary' && !this.destructive}
+                    ?secondary=${button.type == 'secondary'}
+                    ?submitting=${this.submitting}
+                    ?disabled=${this.disabled && !button.closes}
+                    index=${index}
+                    @click=${this.handleClick}
+                  ></temba-button>
+                `
+              )}
               </div>
             </div>
-            <div class="flex-grow bottom-padding"></div>
-            <div class="bottom-padding"></div>
+            <div class="grow-bottom"></div>
           </div>
         </div>
       </div>

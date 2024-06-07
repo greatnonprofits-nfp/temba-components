@@ -1,5 +1,5 @@
 import '../temba-modules';
-
+import { DateTime } from 'luxon';
 interface Clip {
   x: number;
   y: number;
@@ -7,19 +7,20 @@ interface Clip {
   height: number;
 }
 
-import { stub } from 'sinon';
-import { expect, fixture, html, assert } from '@open-wc/testing';
+import { expect, fixture, html, assert, waitUntil } from '@open-wc/testing';
 import MouseHelper from './MouseHelper';
 import { Store } from '../src/store/Store';
+import { replace, stub } from 'sinon';
 
 export interface CodeMock {
   endpoint: RegExp;
   body: string;
   headers: any;
+  status: string;
 }
 
 const gets: CodeMock[] = [];
-const posts: CodeMock[] = [];
+let posts: CodeMock[] = [];
 let normalFetch;
 
 export const showMouse = async () => {
@@ -53,30 +54,29 @@ export const getComponent = async (
     ${height > 0 ? `height:${height}px;` : ``}
     ${style ? style : ``}
   `;
-
   parentNode.setAttribute('style', styleAttribute);
   return await fixture(spec, { parentNode });
 };
 
-const createResponse = mocked => {
+const createResponse = (mocked) => {
   const mockResponse = new window.Response(mocked.body, {
-    status: 200,
+    status: mocked.status,
     headers: {
       'Content-type': 'text/html',
-      ...mocked.headers,
-    },
+      ...mocked.headers
+    }
   });
 
   return Promise.resolve(mockResponse);
 };
 
-const createJSONResponse = mocked => {
+const createJSONResponse = (mocked) => {
   const mockResponse = new window.Response(JSON.stringify(mocked.body), {
-    status: 200,
+    status: mocked.status,
     headers: {
       'Content-type': 'application/json',
-      ...mocked.headers,
-    },
+      ...mocked.headers
+    }
   });
 
   return Promise.resolve(mockResponse);
@@ -85,7 +85,7 @@ const createJSONResponse = mocked => {
 const getResponse = (endpoint: string, options) => {
   // check if our path has been mocked in code
   const mocks = options.method === 'GET' ? gets : posts;
-  const codeMock = mocks.find(mock => mock.endpoint.test(endpoint));
+  const codeMock = mocks.find((mock) => mock.endpoint.test(endpoint));
 
   if (codeMock) {
     if (typeof codeMock.body === 'string') {
@@ -114,15 +114,30 @@ after(() => {
   (window.fetch as any).restore();
 });
 
-export const mockGET = (endpoint: RegExp, body: any, headers: any = {}) => {
-  gets.push({ endpoint, body, headers });
+export const mockGET = (
+  endpoint: RegExp,
+  body: any,
+  headers: any = {},
+  status = '200'
+) => {
+  gets.push({ endpoint, body, headers, status });
 };
 
-export const mockPOST = (endpoint: RegExp, body: any, headers: any = {}) => {
-  posts.push({ endpoint, body, headers });
+export const mockPOST = (
+  endpoint: RegExp,
+  body: any,
+  headers: any = {},
+  status = '200'
+) => {
+  posts.push({ endpoint, body, headers, status });
+};
+
+export const clearMockPosts = () => {
+  posts = [];
 };
 
 export const checkTimers = (clock: any) => {
+  expect(!!clock.timers).to.equal(true, 'Expected timers not found');
   expect(
     Object.keys(clock.timers).length,
     `Timers still to be run ${JSON.stringify(clock.timers)}`
@@ -131,29 +146,24 @@ export const checkTimers = (clock: any) => {
 
 export const delay = (millis: number) => {
   return new Promise(function (resolve) {
-    setTimeout(resolve, millis);
+    window.setTimeout(resolve, millis);
   });
 };
 
 export const assertScreenshot = async (
   filename: string,
   clip: Clip,
-  threshold = 0.1,
-  exclude: Clip[] = []
+  waitFor?: { clock?: any; predicate?: () => boolean }
 ) => {
-  // const screenShotsEnabled = !!__karma__.config.args.find(
-  // (option: string) => option === '--screenshots'
-  // );
-
-  await (window as any).waitFor(200);
-
-  // console.log((window as any).watched);
-  if ((window as any).watched) {
-    // return;
+  if (waitFor) {
+    if (waitFor.clock) {
+      waitFor.clock.restore();
+    }
+    await waitUntil(waitFor.predicate);
   }
 
-  const mochaUI = document.querySelector('#mocha');
-  mochaUI.classList.add('screenshots');
+  const threshold = 0.1;
+  const exclude: Clip[] = [];
 
   try {
     await (window as any).matchPageSnapshot(
@@ -173,8 +183,6 @@ export const assertScreenshot = async (
       );
     }
     throw new Error(error);
-  } finally {
-    mochaUI.classList.remove('screenshots');
   }
 };
 
@@ -198,7 +206,7 @@ export const getClip = (ele: HTMLElement) => {
     bottom: y + height,
     right: x + width,
     top: y,
-    left: x,
+    left: x
   };
 
   return newClip;
@@ -220,9 +228,20 @@ export const loadStore = async () => {
       completion='/test-assets/store/editor.json'
       groups='/test-assets/store/groups.json'
       languages='/test-assets/store/languages.json'
+      fields='/test-assets/store/fields.json'
+      users='/test-assets/store/users.json'
     />`
   );
-  await store.httpComplete;
-  await store.httpComplete;
+  await store.initialHttpComplete;
+  await store.initialHttpComplete;
+
   return store;
+};
+
+export const mockNow = (isodate: string) => {
+  const now = DateTime.fromISO(isodate);
+  // mock the current time
+  replace(DateTime, 'now', () => {
+    return now;
+  });
 };

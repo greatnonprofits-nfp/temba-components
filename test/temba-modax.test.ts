@@ -1,8 +1,9 @@
 import { fixture, expect, assert } from '@open-wc/testing';
+import { useFakeTimers } from 'sinon';
 import { Button } from '../src/button/Button';
 import { Modax } from '../src/dialog/Modax';
-import { useFakeTimers } from 'sinon';
-import { assertScreenshot, checkTimers, getClip, mockPOST } from './utils.test';
+import { CustomEventType } from '../src/interfaces';
+import { assertScreenshot, getClip, mockPOST } from './utils.test';
 
 let clock: any;
 
@@ -23,10 +24,25 @@ const getButtons = (modax: Modax, type: string = null) => {
 };
 
 const open = async (modax: Modax) => {
-  modax.open = true;
-  await modax.updateComplete;
-  await modax.httpComplete;
-  await clock.tick(400);
+  return new Promise((resolve: any) => {
+    modax.addEventListener(
+      CustomEventType.Loaded,
+      async (event: CustomEvent) => {
+        await clock.runAll();
+        resolve(event.detail);
+      }
+    );
+
+    modax.addEventListener(
+      CustomEventType.Redirected,
+      async (event: CustomEvent) => {
+        await clock.runAll();
+        resolve(event.detail);
+      }
+    );
+
+    modax.open = true;
+  });
 };
 
 const clickPrimary = async (modax: Modax) => {
@@ -46,16 +62,11 @@ const clickPrimary = async (modax: Modax) => {
 
     expect(primary).not.equals(undefined, 'Missing primary button');
     primary.click();
-    await clock.tick(500);
-    await clock.tick(100);
-    await waitFor(0);
-    await clock.tick(1000);
   }
 };
 
 const getDialogClip = (modax: Modax) => {
   const dialog = modax.shadowRoot.querySelector('temba-dialog');
-
   return getClip(
     dialog.shadowRoot.querySelector('.dialog-container') as HTMLElement
   );
@@ -82,14 +93,12 @@ describe('temba-modax', () => {
       getModaxHTML('/test-assets/modax/hello.html')
     );
 
-    await click('temba-modax');
+    await open(modax);
     expect(modax.open).equals(true);
-    await modax.httpComplete;
-    await clock.tick(400);
-    checkTimers(clock);
 
     // Now our body should have our endpoint text
     expect(modax.getBody().innerHTML).to.contain('Hello World');
+
     await assertScreenshot('modax/simple', getDialogClip(modax));
   });
 
@@ -101,6 +110,10 @@ describe('temba-modax', () => {
     await open(modax);
 
     expect(modax.open).to.equal(true);
+
+    expect(modax.buttons[1].name).to.equal('Save Everything');
+    expect(modax.buttons[0].name).to.equal('Cancel');
+
     await assertScreenshot('modax/form', getDialogClip(modax));
   });
 
@@ -123,15 +136,8 @@ describe('temba-modax', () => {
 
     // now fetch form from the same modax
     modax.endpoint = '/test-assets/modax/form.html';
-    await modax.updateComplete;
-    await modax.httpComplete;
-    await clock.tick(400);
-
     await open(modax);
     expect(modax.open).equals(true);
-    await modax.httpComplete;
-    await clock.tick(400);
-    await waitFor(100);
 
     // now we should have two buttons, 'Save Everything' and 'Cancel'
     buttons = getButtons(modax);
@@ -152,12 +158,19 @@ describe('temba-modax', () => {
     expect(primary.name).equals('Save Everything');
 
     // click the submit button
-    mockPOST(/\/test-assets\/modax\/form\.html/, '', {
-      'Temba-Success': '/newpage',
+    mockPOST(/\/test-assets\/modax\/form\.html/, 'arst', {
+      'Temba-Success': 'hide'
     });
-    await clickPrimary(modax);
 
-    // our modal should go away as we redirect
-    expect(modax.open).equals(false, 'Modal still visible');
+    const hideTest = new Promise<void>((resolve) => {
+      modax.addEventListener(CustomEventType.Submitted, () => {
+        expect(modax.open).equals(false, 'Modal still visible');
+        resolve();
+      });
+    });
+
+    await clickPrimary(modax);
+    await clock.runAllAsync();
+    await hideTest;
   });
 });

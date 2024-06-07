@@ -1,10 +1,7 @@
 import { LitElement, TemplateResult, html, css } from 'lit';
-import { property } from 'lit/decorators';
-
+import { property } from 'lit/decorators.js';
+import { Icon, SVG_FINGERPRINT } from '.';
 import { getClasses } from '../utils';
-
-// for cache busting, increase whenever the icon set changes
-const ICON_VERSION = 15;
 
 export class VectorIcon extends LitElement {
   @property({ type: String })
@@ -19,6 +16,9 @@ export class VectorIcon extends LitElement {
 
   @property({ type: Number })
   size = 1;
+
+  @property({ type: Boolean })
+  spin: boolean;
 
   @property({ type: Boolean })
   clickable: boolean;
@@ -50,11 +50,12 @@ export class VectorIcon extends LitElement {
   static get styles() {
     return css`
       :host {
-        margin: auto;
+        align-items: center;
+        align-self: center;
       }
 
       .sheet {
-        fill: var(--icon-color);
+        color: var(--icon-color);
         transform: scale(1);
         transition: fill 100ms ease-in-out,
           background 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
@@ -94,7 +95,7 @@ export class VectorIcon extends LitElement {
       }
 
       .circled {
-        background: rgb(240, 240, 240);
+        background: var(--icon-color-circle);
         padding: 0.15em;
         margin: -0.15em;
         box-shadow: var(--shadow);
@@ -122,6 +123,22 @@ export class VectorIcon extends LitElement {
         padding: var(--icon-circle-size);
         margin: calc(-1 * var(--icon-circle-size));
         background: var(--icon-background);
+      }
+
+      .spin-forever {
+        animation-name: spin;
+        animation-duration: 2000ms;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
       }
     `;
   }
@@ -184,6 +201,25 @@ export class VectorIcon extends LitElement {
   }
 
   public render(): TemplateResult {
+    if (!this.name) {
+      return null;
+    }
+
+    // let icon name mappings take precedence
+    let name = this.lastName || this.name;
+
+    // special case our channel icon fallback
+    if (name.startsWith('channel_') && !Icon[name]) {
+      name = Icon.channel_ex;
+    } else {
+      name = Icon[name.replace('icon.', '')] || name;
+    }
+
+    // referencing icons by id is explicit
+    if (!name) {
+      name = this.id;
+    }
+
     return html`
       <div
         @click=${this.handleClicked}
@@ -191,6 +227,7 @@ export class VectorIcon extends LitElement {
           clickable: this.clickable,
           circled: this.circled,
           animate: !!this.animateChange || !!this.animateClick,
+          'spin-forever': this.spin
         })}"
       >
         <svg
@@ -205,7 +242,7 @@ export class VectorIcon extends LitElement {
               this.animationStep > 0,
             [this.animateClick]: !!this.animateClick,
             [this.animateClick + '-' + this.animationStep]:
-              this.animationStep > 0,
+              this.animationStep > 0
           })}"
         >
           <use
@@ -213,9 +250,7 @@ export class VectorIcon extends LitElement {
               ? this.src
               : `${
                   this.prefix || (window as any).static_url || '/static/'
-                }icons/symbol-defs.svg?v=${ICON_VERSION}#icon-${
-                  this.lastName || this.name || this.id
-                }`}"
+                }svg/index.svg?v=${SVG_FINGERPRINT}#${name}`}"
           />
         </svg>
       </div>

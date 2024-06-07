@@ -1,5 +1,5 @@
 import { TemplateResult, html, css, PropertyValueMap } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { FormElement } from '../FormElement';
 import { getClasses } from '../utils';
 import { DateTime } from 'luxon';
@@ -11,12 +11,18 @@ export default class DatePicker extends FormElement {
         display: block;
       }
 
+      input {
+        width: inherit;
+      }
+
       .container {
         border-radius: var(--curvature);
         border: 1px solid var(--color-widget-border);
         display: flex;
         cursor: pointer;
         box-shadow: var(--widget-box-shadow);
+        flex-wrap: wrap;
+        overflow: hidden;
       }
 
       .input-wrapper {
@@ -36,7 +42,7 @@ export default class DatePicker extends FormElement {
         padding: 0em 1em;
         font-weight: 400;
         cursor: pointer;
-        margin: auto;
+        margin: auto 0;
       }
 
       .tz .label {
@@ -53,11 +59,10 @@ export default class DatePicker extends FormElement {
 
       .tz-wrapper {
         background: #efefef;
-        border-top-right-radius: var(--curvature);
-        border-bottom-right-radius: var(--curvature);
         display: flex;
         flex-direction: row;
         align-items: center;
+        padding: 0.4em 0em;
       }
 
       .container:focus-within {
@@ -70,7 +75,6 @@ export default class DatePicker extends FormElement {
         color: var(--color-widget-text);
         border: 0px;
         font-family: var(--font-family);
-        font-weight: 300;
         outline: none;
         width: 100%;
         font-size: 13px;
@@ -89,6 +93,14 @@ export default class DatePicker extends FormElement {
 
       input:focus {
         outline: none;
+      }
+
+      .disabled ::-webkit-calendar-picker-indicator {
+        display: none;
+      }
+
+      .disabled .tz-wrapper {
+        border-radius: var(--curvature);
       }
 
       ::-webkit-calendar-picker-indicator {
@@ -148,11 +160,11 @@ export default class DatePicker extends FormElement {
             datetime = DateTime.fromISO(this.value).setZone(this.timezone);
           }
           this.datetime = datetime;
-          this.setValue(this.datetime.toUTC().toISO());
+          this.value = this.datetime.toUTC().toISO();
         }
       } else {
         this.datetime = DateTime.fromSQL(this.value);
-        this.setValue(this.datetime.toISODate());
+        this.value = this.datetime.toISODate();
       }
     }
   }
@@ -172,16 +184,13 @@ export default class DatePicker extends FormElement {
   public handleChange(event) {
     event.preventDefault();
     event.stopPropagation();
-  }
-
-  public handleBlur(event) {
     if (this.time) {
       this.datetime = DateTime.fromISO(event.target.value, {
-        zone: this.timezone,
+        zone: this.timezone
       });
-      this.setValue(this.datetime.toUTC().toISO());
+      this.value = this.datetime.toUTC().toISO();
     } else {
-      this.setValue(event.target.value);
+      this.value = event.target.value;
     }
     this.fireEvent('change');
   }
@@ -202,6 +211,7 @@ export default class DatePicker extends FormElement {
 
     return html`
       <temba-field
+        class=${getClasses({ disabled: this.disabled })}
         name=${this.name}
         .label="${this.label}"
         .helpText="${this.helpText}"
@@ -219,7 +229,6 @@ export default class DatePicker extends FormElement {
               value=${dateWidgetValue}
               type="${this.time ? 'datetime-local' : 'date'}"
               @change=${this.handleChange}
-              @blur=${this.handleBlur}
             />
           </div>
           ${this.time
@@ -232,6 +241,7 @@ export default class DatePicker extends FormElement {
                 </div>
               `
             : null}
+          <slot name="postfix"></slot>
         </div>
       </temba-field>
     `;

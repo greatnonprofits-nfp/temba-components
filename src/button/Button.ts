@@ -1,7 +1,7 @@
 import { LitElement, TemplateResult, html, css } from 'lit';
 import { getClasses } from '../utils';
 
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 
 export class Button extends LitElement {
   static get styles() {
@@ -12,12 +12,18 @@ export class Button extends LitElement {
         font-weight: 400;
       }
 
+      .small {
+        font-size: 0.8em;
+        --button-y: 0px;
+        --button-x: 0.5em;
+      }
+
       .v-2.button-container {
         background: var(--button-bg);
         background-image: var(--button-bg-img);
         color: var(--button-text);
         box-shadow: var(--button-shadow);
-        transition: all 100ms ease-in;
+        transition: all calc(var(--transition-speed) / 2) ease-in;
       }
 
       .button-container {
@@ -26,7 +32,7 @@ export class Button extends LitElement {
         display: block;
         border-radius: var(--curvature);
         outline: none;
-        transition: background ease-in 200ms;
+        transition: background ease-in var(--transition-speed);
         user-select: none;
         -webkit-user-select: none;
         text-align: center;
@@ -61,7 +67,7 @@ export class Button extends LitElement {
         padding: var(--button-y) var(--button-x);
         border-radius: var(--curvature);
         border: 1px solid transparent;
-        transition: all ease-in 200ms;
+        transition: var(--transition-speed);
         background: var(--button-mask);
       }
 
@@ -115,7 +121,6 @@ export class Button extends LitElement {
       .secondary-button {
         background: transparent;
         color: var(--color-text);
-        font-weight: 300;
       }
 
       .destructive-button {
@@ -172,8 +177,14 @@ export class Button extends LitElement {
   @property({ type: Boolean })
   active: boolean;
 
+  @property({ type: Boolean })
+  small: boolean;
+
   @property({ type: String })
   href: string;
+
+  @property({ type: Number })
+  index?: number;
 
   private handleClick(evt: MouseEvent) {
     if (this.disabled) {
@@ -231,6 +242,7 @@ export class Button extends LitElement {
           'attention-button': this.attention,
           'destructive-button': this.destructive,
           'light-button': this.light,
+          small: this.small
         })}"
         tabindex="0"
         @mousedown=${this.handleMouseDown}
@@ -240,7 +252,7 @@ export class Button extends LitElement {
         @click=${this.handleClick}
       >
         <div class="button-mask">
-          <div class="button-name">${buttonName}</div>
+          <div class="button-name"><slot name="name">${buttonName}</slot></div>
         </div>
       </div>
     `;

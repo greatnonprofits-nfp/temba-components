@@ -1,6 +1,6 @@
 import { css, html, TemplateResult } from 'lit';
-import { property } from 'lit/decorators';
-import { styleMap } from 'lit-html/directives/style-map';
+import { property } from 'lit/decorators.js';
+import { styleMap } from 'lit-html/directives/style-map.js';
 import { RapidElement } from '../RapidElement';
 import { getClasses } from '../utils';
 import { getCenter, getMiddle } from './helpers';
@@ -61,6 +61,7 @@ export class Tip extends RapidElement {
       }
     `;
   }
+
   @property({ type: String })
   text: string;
 
@@ -86,10 +87,12 @@ export class Tip extends RapidElement {
   poppedTop: boolean;
 
   arrow: string;
-
   arrowTop: number;
   arrowLeft: number;
   arrowDirection: string;
+
+  lastEnter = 0;
+  failSafe = 0;
 
   public updated(changed: Map<string, any>) {
     if ((changed.has('visible') || changed.has('text')) && this.visible) {
@@ -148,9 +151,6 @@ export class Tip extends RapidElement {
     }
   }
 
-  lastEnter = 0;
-  failSafe = 0;
-
   private handleMouseEnter() {
     this.lastEnter = window.setTimeout(() => {
       this.visible = true;
@@ -169,12 +169,12 @@ export class Tip extends RapidElement {
   public render(): TemplateResult {
     const tipStyle: any = {
       top: this.top ? `${this.top}px` : '0px',
-      left: this.left ? `${this.left}px` : '0px',
+      left: this.left ? `${this.left}px` : '0px'
     };
 
     const arrowStyle: any = {
       top: this.arrowTop ? `${this.arrowTop}px` : '0px',
-      left: this.arrowLeft ? `${this.arrowLeft}px` : '0px',
+      left: this.arrowLeft ? `${this.arrowLeft}px` : '0px'
     };
 
     if (this.width) {
@@ -185,7 +185,7 @@ export class Tip extends RapidElement {
       tip: true,
       show: this.visible,
       top: this.poppedTop,
-      'hide-on-change': this.hideOnChange,
+      'hide-on-change': this.hideOnChange
     });
 
     return html`

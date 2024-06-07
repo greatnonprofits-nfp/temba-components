@@ -1,8 +1,9 @@
-import { html, TemplateResult } from 'lit';
-import { property } from 'lit/decorators';
+import { css, html, TemplateResult } from 'lit';
+import { property } from 'lit/decorators.js';
 import { Checkbox } from '../checkbox/Checkbox';
 import { Select } from '../select/Select';
 import { capitalize } from '../utils';
+import { Icon } from '../vectoricon';
 import { TembaList } from './TembaList';
 
 const FLOW_COLOR = 'rgb(223, 65, 159)';
@@ -24,6 +25,27 @@ export class RunList extends TembaList {
   selectedRun: any;
 
   private resultKeys = {};
+
+  static get styles() {
+    return css`
+      :host {
+        overflow-y: auto !important;
+        --contact-name-font-size: 1em;
+      }
+
+      @media only screen and (max-height: 768px) {
+        temba-options {
+          max-height: 20vh;
+        }
+      }
+
+      temba-options {
+        display: block;
+        width: 100%;
+        flex-grow: 1;
+      }
+    `;
+  }
 
   public firstUpdated(changedProperties: Map<string, any>) {
     super.firstUpdated(changedProperties);
@@ -72,7 +94,7 @@ export class RunList extends TembaList {
   }
 
   public removeRun(id: number) {
-    this.items = this.items.filter(run => run.id !== id);
+    this.items = this.items.filter((run) => run.id !== id);
     this.cursorIndex = Math.min(this.cursorIndex, this.items.length);
     this.requestUpdate('cursorIndex');
   }
@@ -125,7 +147,7 @@ export class RunList extends TembaList {
       return html`
         <div class="row" style="${statusStyle}display:flex;align-items:center">
           <div
-            style="width: 12em;white-space:nowrap;overflow: hidden; text-overflow: ellipsis;"
+            style="width:16em;white-space:nowrap;overflow: hidden; text-overflow: ellipsis;"
           >
             <temba-contact-name
               name=${run.contact.name || run.contact.anon_display}
@@ -141,7 +163,7 @@ export class RunList extends TembaList {
           </div>
 
           <div style="flex-shrink:1">
-            ${this.store.getShortDuration(run.modified_on)}
+            <temba-date value="${run.modified_on}" display="duration" />
           </div>
           ${this.getIcon(run)}
         </div>
@@ -227,7 +249,6 @@ export class RunList extends TembaList {
       return null;
     }
 
-    const exitType = this.selectedRun.exit_type;
     const resultKeys = Object.keys(this.selectedRun.values);
 
     return html` <div
@@ -251,35 +272,25 @@ export class RunList extends TembaList {
             >
               ${this.selectedRun.exit_type
                 ? html`
-                    ${this.getIcon(this.selectedRun)}
-                    <div style="margin-left:0.5em;flex-grow:1">
-                      ${capitalize(this.selectedRun.exit_type)}
-                      ${exitType == 'completed'
-                        ? html` in
-                          ${this.store.getShortDuration(
-                            this.selectedRun.created_on,
-                            this.selectedRun.exited_on,
-                            true
-                          )}`
-                        : null}
-                      ${exitType == 'interrupted' || exitType == 'expired'
-                        ? html` after
-                          ${this.store.getShortDuration(
-                            this.selectedRun.created_on,
-                            this.selectedRun.exited_on,
-                            true
-                          )}`
-                        : null}
+                    <div style="margin-left:2em;flex-grow:1;display:flex">
+                      ${this.getIcon(this.selectedRun)}
+                      <div style="margin-left:0.5em">
+                        ${capitalize(this.selectedRun.exit_type)}&nbsp;
+                      </div>
+                      <temba-date
+                        value="${this.selectedRun.exited_on}"
+                        compare="${this.selectedRun.created_on}"
+                        display="duration"
+                      />
                     </div>
                   `
                 : html`${this.getIcon(this.selectedRun)}
-                    <div style="margin-left:0.5em;flex-grow:1">
-                      Active for
-                      ${this.store.getShortDuration(
-                        this.selectedRun.created_on,
-                        null,
-                        true
-                      )}
+                    <div style="margin-left:1.5em;flex-grow:1;display:flex">
+                      <div>Started&nbsp;</div>
+                      <temba-date
+                        value="${this.selectedRun.created_on}"
+                        display="duration"
+                      ></temba-date>
                     </div>`}
             </div>
           </div>
@@ -297,16 +308,14 @@ export class RunList extends TembaList {
           <temba-icon
             clickable
             style="margin-left:0.75em;"
-            name="trash"
+            name=${Icon.delete}
             onclick="deleteRun(${this.selectedRun.id});"
           ></temba-icon>
         </div>
 
         ${resultKeys.length > 0
           ? html`
-              <div
-                style="padding:1em;overflow-y:auto;overflow-x:hidden;max-height:15vh;"
-              >
+              <div style="padding:1em;">
                 <div
                   style="display:flex;font-size:1.2em;position:relative;right:0px"
                 >

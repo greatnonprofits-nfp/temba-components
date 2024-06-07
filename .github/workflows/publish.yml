@@ -10,17 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
-      - name: Use Node.js 12.x
-        uses: actions/setup-node@v1
+      - name: Checkout (GitHub)
+        uses: actions/checkout@v4
+      - run: docker network create --driver bridge textit_default
+      - name: Build and run dev container task
+        uses: devcontainers/ci@v0.3
         with:
-          node-version: 12
-      - name: Build and Test
-        run: |
-          yarn install
-          yarn run build
-        env:
-          CI: true
+          runCmd: yarn run build
+          push: never
+          env: |
+            CI=true
       - name: Publish
         run: |
           npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN

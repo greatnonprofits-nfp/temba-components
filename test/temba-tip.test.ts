@@ -1,6 +1,6 @@
 import { assert } from '@open-wc/testing';
 import { Tip } from '../src/tip/Tip';
-import { assertScreenshot, delay, getClip, getComponent } from './utils.test';
+import { assertScreenshot, getClip, getComponent } from './utils.test';
 
 const TAG = 'temba-tip';
 
@@ -12,7 +12,16 @@ const getTip = async (
   attrs: { text?: string; position?: string; visible?: boolean } = {},
   slot = getTarget()
 ) => {
-  return (await getComponent(TAG, attrs, slot, 20, 0, 'margin:200px;')) as Tip;
+  const tip = (await getComponent(
+    TAG,
+    attrs,
+    slot,
+    20,
+    0,
+    'margin:200px;'
+  )) as Tip;
+  await tip.updateComplete;
+  return tip;
 };
 
 const getRightClip = (ele: HTMLElement) => {
@@ -59,9 +68,8 @@ describe(TAG, () => {
     const tip = await getTip({
       text: 'Hello!',
       visible: true,
-      position: 'left',
+      position: 'left'
     });
-    await delay(200);
     await assertScreenshot('tip/left', getLeftClip(tip));
   });
 
@@ -69,9 +77,8 @@ describe(TAG, () => {
     const tip = await getTip({
       text: 'Hello!',
       visible: true,
-      position: 'right',
+      position: 'right'
     });
-    await delay(200);
     await assertScreenshot('tip/right', getRightClip(tip));
   });
 
@@ -79,9 +86,8 @@ describe(TAG, () => {
     const tip = await getTip({
       text: 'Hello!',
       visible: true,
-      position: 'top',
+      position: 'top'
     });
-    await delay(200);
     await assertScreenshot('tip/top', getTopClip(tip));
   });
 
@@ -89,9 +95,8 @@ describe(TAG, () => {
     const tip = await getTip({
       text: 'Hello!',
       visible: true,
-      position: 'bottom',
+      position: 'bottom'
     });
-    await delay(200);
     await assertScreenshot('tip/bottom', getBottomClip(tip));
   });
 });

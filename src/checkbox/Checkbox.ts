@@ -1,6 +1,7 @@
 import { TemplateResult, html, css } from 'lit';
 import { FormElement } from '../FormElement';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
+import { Icon } from '../vectoricon';
 
 export class Checkbox extends FormElement {
   static get styles() {
@@ -15,7 +16,7 @@ export class Checkbox extends FormElement {
       }
 
       .wrapper.label {
-        padding: 10px;
+        padding: var(--checkbox-padding, 10px);
         border-radius: var(--curvature);
       }
 
@@ -39,7 +40,6 @@ export class Checkbox extends FormElement {
         font-family: var(--font-family);
         padding: 0px;
         margin-left: 8px;
-        font-weight: 300;
         font-size: 14px;
         line-height: 19px;
         flex-grow: 1;
@@ -64,6 +64,9 @@ export class Checkbox extends FormElement {
   checked: boolean;
 
   @property({ type: Boolean })
+  partial: boolean;
+
+  @property({ type: Boolean })
   disabled = false;
 
   @property({ type: Number })
@@ -74,13 +77,12 @@ export class Checkbox extends FormElement {
 
   public updated(changes: Map<string, any>) {
     super.updated(changes);
-    if (changes.has('checked')) {
-      if (this.checked) {
-        this.setValue(1);
+    if (changes.has('checked') || changes.has('value')) {
+      if (this.checked || this.partial) {
+        this.internals.setFormValue(this.value || '1');
       } else {
-        this.setValue('');
+        this.internals.setFormValue(undefined);
       }
-
       this.fireEvent('change');
     }
   }
@@ -102,7 +104,11 @@ export class Checkbox extends FormElement {
 
   public render(): TemplateResult {
     const icon = html`<temba-icon
-      name="${this.checked ? 'check-' : ''}square"
+      name="${this.checked
+        ? Icon.checkbox_checked
+        : this.partial
+        ? Icon.checkbox_partial
+        : Icon.checkbox}"
       size="${this.size}"
       animatechange="${this.animateChange}"
     />`;

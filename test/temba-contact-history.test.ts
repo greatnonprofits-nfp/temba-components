@@ -1,12 +1,13 @@
 import { fixture, assert, expect } from '@open-wc/testing';
-import * as sinon from 'sinon';
+import { useFakeTimers } from 'sinon';
 import { ContactHistory } from '../src/contacts/ContactHistory';
-import { stubbable } from '../src/utils';
 import {
   assertScreenshot,
   getClip,
   getHTML,
+  loadStore,
   mockGET,
+  mockNow
 } from '../test/utils.test';
 import './utils.test';
 
@@ -18,12 +19,7 @@ export const createHistory = async (def: string) => {
   );
   const history = (await fixture(def, { parentNode })) as ContactHistory;
 
-  // let history fetch start and wait for it
-  await waitFor(0);
-  await history.httpComplete;
-
-  // wait for scroll update
-  await waitFor(0);
+  // make sure our initial fetch is made
   await history.httpComplete;
 
   return history;
@@ -41,12 +37,13 @@ const getHistoryClip = (ele: ContactHistory) => {
 };
 
 // stub our current date for consistent screenshots
-sinon.stub(stubbable, 'getCurrentDate').callsFake(() => {
-  return new Date('2021-03-31T00:00:00.000-00:00');
-});
+mockNow('2021-03-31T00:31:00.000-00:00');
+let clock: any;
 
 describe('temba-contact-history', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    clock = useFakeTimers();
+
     mockGET(
       /\/contact\/history\/contact-dave-active\/.*/,
       '/test-assets/contacts/history.json'
@@ -56,6 +53,12 @@ describe('temba-contact-history', () => {
       /\/api\/v2\/tickets\.json\?contact=contact-dave-active/,
       '/test-assets/api/tickets.json'
     );
+
+    await loadStore();
+  });
+
+  afterEach(function () {
+    clock.restore();
   });
 
   it('can be created', async () => {
@@ -66,28 +69,27 @@ describe('temba-contact-history', () => {
   it('renders history', async () => {
     const history = await createHistory(
       getHistoryHTML({
-        uuid: 'contact-dave-active',
+        uuid: 'contact-dave-active'
       })
     );
 
-    await waitFor(500);
+    // we should have scrolled to the bottom, but the scroll
+    // happens in a window timeout
+    await clock.runAllAsync();
+    await history.updateComplete;
 
-    // we should have scrolled to the bottom
     const events = history.shadowRoot.querySelector('.events');
     const top = events.scrollHeight - events.getBoundingClientRect().height;
-
-    expect(top).to.equal(520);
-
+    expect(top).to.equal(571);
     // make sure we actually scrolled to there
     expect(events.scrollTop).to.equal(top);
-
     await assertScreenshot('contacts/history', getHistoryClip(history));
   });
 
   it('expands event groups', async () => {
     const history = await createHistory(
       getHistoryHTML({
-        uuid: 'contact-dave-active',
+        uuid: 'contact-dave-active'
       })
     );
 
@@ -98,13 +100,8 @@ describe('temba-contact-history', () => {
         `.event-count[data-group-index='${idx}']`
       ) as HTMLDivElement;
       group.click();
+      await clock.runAllAsync();
+      expect(group.parentElement.classList.contains('expanded')).equal(true);
     }
-
-    await waitFor(800);
-
-    await assertScreenshot(
-      'contacts/history-expanded',
-      getHistoryClip(history)
-    );
   });
 });

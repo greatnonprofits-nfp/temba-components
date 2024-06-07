@@ -1,9 +1,18 @@
 import { css, html, TemplateResult } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { FormElement } from '../FormElement';
 import { CustomEventType } from '../interfaces';
 import { RapidElement } from '../RapidElement';
-import { TextInput } from '../textinput/TextInput';
+import { InputType, TextInput } from '../textinput/TextInput';
+import { Icon } from '../vectoricon';
+import { getClasses, WebResponse } from '../utils';
+
+enum Status {
+  Success = 'success',
+  Failure = 'failure',
+  Saving = 'saving',
+  Ready = 'ready'
+}
 
 export class ContactFieldEditor extends RapidElement {
   @property({ type: String })
@@ -22,62 +31,121 @@ export class ContactFieldEditor extends RapidElement {
   timezone: string;
 
   @property({ type: String })
-  icon = navigator.clipboard ? 'copy' : '';
+  icon = navigator.clipboard ? Icon.copy : '';
 
   @property({ type: String })
   iconClass = '';
 
+  @property({ type: String })
+  status: Status = Status.Ready;
+
+  @property({ type: Boolean })
+  disabled = false;
+
+  @property({ type: Boolean })
+  dirty = false;
+
   static get styles() {
     return css`
+      :host {
+        --transition-speed: 0ms;
+      }
+
       .wrapper {
+        --temba-textinput-padding: 1.4em 0.8em 0.4em 0.8em;
+        --disabled-opacity: 1;
+        position: relative;
+        --color-widget-bg: transparent;
+        --color-widget-bg-focused: #fff;
         --widget-box-shadow: none;
+        padding-bottom: 0.6em;
+        border-bottom: 1px solid #ececec;
+      }
+
+      .wrapper.disabled {
+        --color-widget-border: transparent;
+      }
+
+      .wrapper.mutable:hover {
+      }
+
+      .wrapper.mutable {
+        --color-widget-border: rgb(235, 235, 235);
+        --color-widget-bg: transparent;
+        --input-cursor: pointer;
+
+        border-bottom: none;
+        margin-bottom: 0.5em;
+        padding-bottom: 0em;
+      }
+
+      .mutable.success {
+        --color-widget-border: rgba(var(--success-rgb), 0.6);
+      }
+
+      .mutable.failure {
+        --color-widget-border: rgba(var(--error-rgb), 0.3) !important;
+      }
+
+      .mutable .dirty {
+        --color-widget-border: rgb(235, 235, 235);
       }
 
       .prefix {
-        background: rgba(0, 0, 0, 0.05);
         border-top-left-radius: var(--curvature-widget);
         border-bottom-left-radius: var(--curvature-widget);
-        color: #888;
-        cursor: pointer;
-        width: 200px;
+        cursor: pointer !important;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         display: flex;
         padding: 0em 0.5em;
+        position: absolute;
+        margin-top: 0.2em;
+        pointer-events: none;
       }
 
       .wrapper {
-        margin-bottom: -1px;
+        margin-bottom: 0.5em;
       }
 
-      .prefix .name {
-        padding: 0.5em 0em;
-        color: #888;
-        width: 200px;
+      .prefix .name,
+      .label .name {
+        padding: 0em 0.4em;
+        color: rgba(100, 100, 100, 0.7);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        font-size: 0.8em;
+      }
+
+      .disabled .name {
+        margin-top: 1em;
+        margin-left: 0.75em;
+      }
+
+      .disabled .value {
+        margin-left: 0.9em;
+        margin-top: 0.1em;
+        min-height: 1.75em;
       }
 
       .postfix {
         display: flex;
         align-items: stretch;
+        margin-left: 1em;
       }
 
       .popper {
-        padding: 0.5em 0.75em;
-        background: rgba(240, 240, 240, 1);
+        background: rgba(0, 0, 0, 0.03);
         border-top-right-radius: var(--curvature-widget);
         border-bottom-right-radius: var(--curvature-widget);
         --icon-color: #888;
-        opacity: 0;
-        cursor: default;
-        transform: scale(0.5);
-        transition: all 300ms ease-in-out;
         display: flex;
+        cursor: default;
+        transition: all var(--transition-speed) ease-in-out;
         align-items: stretch;
-        z-index: 1000;
+        margin: -1px;
       }
 
       temba-icon[name='calendar'] {
@@ -93,19 +161,41 @@ export class ContactFieldEditor extends RapidElement {
         --icon-color: rgba(0, 0, 0, 0.3);
       }
 
+      temba-textinput:focus .popper,
       temba-textinput:hover .popper {
-        opacity: 1;
-        transform: scale(1);
+        display: flex;
       }
 
-      temba-textinput:focus .popper {
-        opacity: 1;
-        transform: scale(1);
+      .disabled temba-textinput .postfix {
+        display: none;
+        padding: none;
       }
 
-      .unset temba-textinput:focus .popper,
-      .unset temba-textinput:hover .popper {
-        opacity: 0;
+      .unset temba-textinput .popper .copy,
+      .unset temba-textinput .popper .search {
+        display: none;
+      }
+
+      .unset temba-textinput:focus .popper .copy,
+      .unset temba-textinput:hover .popper .copy,
+      .unset temba-textinput:focus .popper .save,
+      .unset temba-textinput:hover .popper .save {
+        display: none;
+      }
+
+      .popper temba-icon {
+        padding: 0.5em 0em;
+        padding-right: 1em;
+      }
+
+      .popper:first-child {
+        padding: 0.5em 0em;
+        padding-right: 0.5em;
+        padding-left: 1em;
+      }
+
+      .popper:last-child {
+        padding-right: 0em;
       }
 
       .copy.clicked temba-icon {
@@ -116,13 +206,89 @@ export class ContactFieldEditor extends RapidElement {
         transition: all 200ms ease-in-out;
       }
 
-      temba-icon[name='search'] {
-        margin-right: 1em;
+      temba-datepicker {
+        position: relative;
       }
 
-      temba-datepicker {
-        --curvature: 0px;
-        position: relative;
+      .save-state {
+        display: flex;
+        align-items: center;
+      }
+
+      .save-button {
+        padding-right: 1em;
+      }
+
+      .dirty .copy,
+      .dirty .search {
+        display: none;
+      }
+
+      .saving .copy,
+      .saving .search {
+        display: none;
+      }
+
+      .success .copy,
+      .success .search {
+        display: none;
+      }
+
+      .failure .copy,
+      .failure .search {
+        display: none;
+      }
+
+      .popper.success {
+        background: rgb(var(--success-rgb));
+      }
+
+      .popper.failure {
+        background: rgb(var(--error-rgb));
+      }
+
+      .popper.success temba-icon,
+      .popper.failure temba-icon {
+        --icon-color: #fff !important;
+      }
+
+      .popper.dirty {
+        background: rgba(0, 0, 0, 0.03);
+      }
+
+      temba-datepicker .popper {
+        border-radius: 0px;
+      }
+
+      temba-datepicker .popper:first-child {
+        padding: 0;
+      }
+
+      .dirty temba-datepicker .popper:first-child {
+        padding-left: 1em;
+      }
+
+      .success temba-datepicker .popper:first-child {
+        padding-left: 1em;
+      }
+
+      .failure temba-datepicker .popper:first-child {
+        padding-left: 1em;
+      }
+
+      .saving temba-datepicker .popper:first-child {
+        padding-left: 1em;
+      }
+
+      temba-datepicker .postfix {
+        margin-left: 0;
+      }
+
+      .saving temba-datepicker,
+      .saving temba-textinput {
+        pointer-events: none !important;
+        cursor: default !important;
+        opacity: 0.7;
       }
     `;
   }
@@ -135,7 +301,7 @@ export class ContactFieldEditor extends RapidElement {
 
   public handleIconClick(evt: MouseEvent) {
     const ele = evt.target as HTMLDivElement;
-    const icon = ele.getAttribute('name');
+    const icon = ele.getAttribute('icon-action');
     const input = this.shadowRoot.querySelector('temba-textinput') as TextInput;
 
     if (icon === 'copy') {
@@ -152,7 +318,7 @@ export class ContactFieldEditor extends RapidElement {
     if (icon === 'search') {
       this.fireCustomEvent(CustomEventType.ButtonClicked, {
         key: this.key,
-        value: this.value,
+        value: this.value
       });
     }
 
@@ -160,15 +326,30 @@ export class ContactFieldEditor extends RapidElement {
     evt.stopPropagation();
   }
 
+  public handleResponse(response: WebResponse) {
+    if (response.status === 200) {
+      this.value = response.json.fields[this.key];
+      // this.status = Status.Success;
+      // on success lets go back to ready state for now
+      this.status = Status.Ready;
+      this.dirty = false;
+    } else {
+      this.status = Status.Failure;
+      this.dirty = false;
+    }
+  }
+
   public handleSubmit() {
     const input = this.shadowRoot.querySelector(
       'temba-textinput, temba-datepicker'
     ) as FormElement;
+
     if (input.value !== this.value) {
+      this.dirty = true;
+      this.status = Status.Saving;
       this.value = input.value;
       this.fireEvent('change');
     }
-    this.icon = navigator.clipboard ? 'copy' : '';
   }
 
   public handleChange(evt: Event) {
@@ -176,35 +357,125 @@ export class ContactFieldEditor extends RapidElement {
     evt.stopPropagation();
   }
 
+  public handleDateChange(evt: Event) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    this.dirty = true;
+  }
+
   public handleInput(evt: KeyboardEvent) {
+    const input = evt.currentTarget as TextInput;
     if (evt.key === 'Enter') {
-      const input = evt.currentTarget as TextInput;
       input.blur();
+      this.handleSubmit();
+    } else {
+      if (input.value !== this.value) {
+        this.dirty = true;
+      }
     }
   }
 
+  private getInputType(type: string): string {
+    if (type === 'numeric') {
+      return InputType.Number;
+    }
+    return InputType.Text;
+  }
+
   public render(): TemplateResult {
+    if (this.disabled) {
+      return html`<div
+        class=${this.status +
+        ' ' +
+        getClasses({
+          wrapper: true,
+          set: !!this.value,
+          unset: !this.value,
+          disabled: this.disabled,
+          mutable: !this.disabled,
+          dirty: this.dirty
+        })}
+      >
+        <div class="label"><div class="name">${this.name}</div></div>
+        <div class="value">
+          ${this.type === 'datetime'
+            ? this.value
+              ? html`<temba-date
+                  value=${this.value}
+                  display="datetime"
+                ></temba-date>`
+              : null
+            : this.value}
+        </div>
+      </div>`;
+    }
+
+    const state = html`<div class="save-state">
+      ${this.dirty
+        ? html`<temba-button
+            class="save-button"
+            name="Save"
+            small
+            @click=${this.handleSubmit}
+          ></temba-button>`
+        : html` ${this.status === Status.Saving
+            ? html`<temba-icon
+                spin
+                name="${Icon.progress_spinner}"
+              ></temba-icon>`
+            : null}
+          ${this.status === Status.Success && !this.dirty
+            ? html`<temba-icon name="${Icon.success}"></temba-icon>`
+            : null}
+          ${this.status === Status.Failure
+            ? html`<temba-tip text="Failed to save changes, try again later."
+                ><temba-icon name="${Icon.alert_warning}"></temba-icon
+              ></temba-tip>`
+            : null}`}
+    </div>`;
+
     return html`
-      <div class="wrapper ${this.value ? 'set' : 'unset'}">
+      <div
+        class=${this.status +
+        ' ' +
+        getClasses({
+          wrapper: true,
+          set: !!this.value,
+          unset: !this.value,
+          disabled: this.disabled,
+          mutable: !this.disabled,
+          dirty: this.dirty
+        })}
+      >
         ${this.type === 'datetime'
           ? html`
               <temba-datepicker
                 timezone=${this.timezone}
                 value="${this.value ? this.value : ''}"
-                @change=${this.handleSubmit}
+                @change=${this.handleDateChange}
+                ?disabled=${this.disabled}
                 time
               >
                 <div class="prefix" slot="prefix">
                   <div class="name">${this.name}</div>
                 </div>
+                <div class="postfix" slot="postfix">
+                  <div
+                    class="popper ${this.status}  ${this.dirty ? 'dirty' : ''}"
+                  >
+                    ${state}
+                  </div>
+                </div>
               </temba-datepicker>
             `
           : html`
               <temba-textinput
+                class="${this.status} ${this.dirty ? 'dirty' : ''}"
                 value="${this.value ? this.value : ''}"
-                @blur=${this.handleSubmit}
-                @keydown=${this.handleInput}
+                @keyup=${this.handleInput}
                 @change=${this.handleChange}
+                type=${this.getInputType(this.type)}
+                ?disabled=${this.disabled}
               >
                 <div class="prefix" slot="prefix">
                   <div class="name">${this.name}</div>
@@ -212,19 +483,22 @@ export class ContactFieldEditor extends RapidElement {
 
                 <div class="postfix">
                   <div
-                    class="popper ${this.iconClass}"
+                    class="popper ${this.iconClass} ${this.status}  ${this.dirty
+                      ? 'dirty'
+                      : ''}"
                     @click=${this.handleIconClick}
                   >
-                    ${this.value
-                      ? html`
-                  <temba-icon
-                    name="search"
-                    animateclick="pulse"
-                  ></temba-icon>
-                  </div>
-                `
-                      : null}
+                    ${state}
+
                     <temba-icon
+                      class="search"
+                      icon-action="search"
+                      name="${Icon.search}"
+                      animateclick="pulse"
+                    ></temba-icon>
+                    <temba-icon
+                      class="copy"
+                      icon-action="copy"
                       name="${this.icon}"
                       animatechange="spin"
                       animateclick="pulse"

@@ -1,4 +1,4 @@
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import {
   fetchResults,
   getUrl,
@@ -6,6 +6,9 @@ import {
   Asset,
   WebResponse,
   postUrl,
+  postJSON,
+  postForm,
+  getCookie
 } from '../utils';
 import {
   ContactField,
@@ -15,21 +18,50 @@ import {
   KeyedAssets,
   CustomEventType,
   Workspace,
+  User
 } from '../interfaces';
 import { RapidElement } from '../RapidElement';
-import Lru from 'tiny-lru';
-import {
-  HumanizeDurationLanguage,
-  HumanizeDuration,
-} from 'humanize-duration-ts';
+import { lru } from 'tiny-lru';
 import { DateTime } from 'luxon';
+import { css, html } from 'lit';
+import { configureLocalization } from '@lit/localize';
+import { sourceLocale, targetLocales } from '../locales/locale-codes';
+
+const { setLocale } = configureLocalization({
+  sourceLocale,
+  targetLocales,
+  loadLocale: (locale) => import(`./locales/${locale}.js`)
+});
 
 export class Store extends RapidElement {
+  public static get styles() {
+    return css`
+      :host {
+        position: fixed;
+        z-index: 1000;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        top: 0.5em;
+      }
+    `;
+  }
+
+  settings = {};
+
   @property({ type: Number })
   ttl = 60000;
 
   @property({ type: Number })
   max = 20;
+
+  @property({ type: Boolean })
+  ready = false;
+
+  @property({ type: Boolean })
+  loader = false;
 
   @property({ type: String, attribute: 'completion' })
   completionEndpoint: string;
@@ -49,6 +81,9 @@ export class Store extends RapidElement {
   @property({ type: String, attribute: 'workspace' })
   workspaceEndpoint: string;
 
+  @property({ type: String, attribute: 'users' })
+  usersEndpoint: string;
+
   @property({ type: Object, attribute: false })
   private schema: CompletionSchema;
 
@@ -63,19 +98,26 @@ export class Store extends RapidElement {
   private fields: { [key: string]: ContactField } = {};
   private groups: { [uuid: string]: ContactGroup } = {};
   private languages: any = {};
+  private users: User[];
   private workspace: Workspace;
-  private pinnedFields: ContactField[] = [];
-
-  private langService = new HumanizeDurationLanguage();
-  private humanizer = new HumanizeDuration(this.langService);
+  private featuredFields: ContactField[] = [];
 
   // http promise to monitor for completeness
-  public httpComplete: Promise<void | WebResponse[]>;
+  public initialHttpComplete: Promise<void | WebResponse[]>;
 
   private cache: any;
+  public getLocale() {
+    return this.locale[0];
+  }
+
+  public clearCache() {
+    this.cache = lru(this.max, this.ttl);
+  }
 
   public reset() {
-    this.cache = Lru(this.max, this.ttl);
+    this.ready = false;
+    this.clearCache();
+    this.settings = JSON.parse(getCookie('settings') || '{}');
 
     /* 
     // This will create a shorthand unit
@@ -95,7 +137,7 @@ export class Store extends RapidElement {
     const fetches = [];
     if (this.completionEndpoint) {
       fetches.push(
-        getUrl(this.completionEndpoint).then(response => {
+        getUrl(this.completionEndpoint).then((response) => {
           this.schema = response.json['context'] as CompletionSchema;
           this.fnOptions = response.json['functions'] as CompletionOption[];
         })
@@ -103,24 +145,7 @@ export class Store extends RapidElement {
     }
 
     if (this.fieldsEndpoint) {
-      fetches.push(
-        getAssets(this.fieldsEndpoint).then((assets: Asset[]) => {
-          this.keyedAssets['fields'] = [];
-          this.pinnedFields = [];
-
-          assets.forEach((field: ContactField) => {
-            this.keyedAssets['fields'].push(field.key);
-            this.fields[field.key] = field;
-            if (field.pinned) {
-              this.pinnedFields.push(field);
-            }
-          });
-
-          this.pinnedFields.sort((a, b) => {
-            return b.priority - a.priority;
-          });
-        })
-      );
+      fetches.push(this.refreshFields());
     }
 
     if (this.globalsEndpoint) {
@@ -169,7 +194,29 @@ export class Store extends RapidElement {
       );
     }
 
-    this.httpComplete = Promise.all(fetches);
+    if (this.usersEndpoint) {
+      fetches.push(
+        getAssets(this.usersEndpoint).then((users: any[]) => {
+          this.users = users;
+        })
+      );
+    }
+
+    this.initialHttpComplete = Promise.all(fetches);
+
+    this.initialHttpComplete.then(() => {
+      this.ready = true;
+    });
+  }
+
+  public getAssignableUsers() {
+    return this.users.filter((user: User) =>
+      ['administrator', 'editor', 'agent'].includes(user.role)
+    );
+  }
+
+  public getUser(email: string) {
+    return this.users.find((user: User) => user.email === email);
   }
 
   public firstUpdated() {
@@ -183,33 +230,49 @@ export class Store extends RapidElement {
     return 'en';
   }
 
-  public getShortDuration(
-    isoDateA: string,
-    isoDateB: string = null,
-    showSeconds = false
-  ) {
+  public refreshGlobals() {
+    getAssets(this.globalsEndpoint).then((assets: Asset[]) => {
+      this.keyedAssets['globals'] = assets.map((asset: Asset) => asset.key);
+    });
+  }
+
+  public refreshFields() {
+    return getAssets(this.fieldsEndpoint).then((assets: Asset[]) => {
+      this.keyedAssets['fields'] = [];
+      this.featuredFields = [];
+
+      assets.forEach((field: ContactField) => {
+        this.keyedAssets['fields'].push(field.key);
+        this.fields[field.key] = field;
+        if (field.featured) {
+          this.featuredFields.push(field);
+        }
+      });
+
+      this.featuredFields.sort((a, b) => {
+        return b.priority - a.priority;
+      });
+
+      this.keyedAssets['fields'].sort();
+
+      this.fireCustomEvent(CustomEventType.StoreUpdated, {
+        url: this.fieldsEndpoint,
+        data: this.keyedAssets['fields']
+      });
+    });
+  }
+
+  public getShortDuration(scheduled: DateTime, compareDate: DateTime = null) {
+    const now = compareDate || DateTime.now();
+    return scheduled
+      .setLocale(this.locale[0])
+      .toRelative({ base: now, style: 'long' });
+  }
+
+  public getShortDurationFromIso(isoDateA: string, isoDateB: string = null) {
     const scheduled = DateTime.fromISO(isoDateA);
     const now = isoDateB ? DateTime.fromISO(isoDateB) : DateTime.now();
-
-    const duration = scheduled.diff(now).valueOf();
-
-    if (showSeconds) {
-      return this.humanizer.humanize(duration, {
-        language: this.getLanguageCode(),
-        largest: 1,
-        round: true,
-      });
-    }
-
-    if (Math.abs(duration) < 60000) {
-      return 'just now';
-    }
-
-    return this.humanizer.humanize(duration, {
-      language: this.getLanguageCode(),
-      largest: 1,
-      round: false,
-    });
+    return this.getShortDuration(scheduled, now);
   }
 
   public setKeyedAssets(name: string, values: string[]): void {
@@ -218,6 +281,17 @@ export class Store extends RapidElement {
 
   public updated(changedProperties: Map<string, any>) {
     super.updated(changedProperties);
+
+    if (changedProperties.has('ready') && this.ready) {
+      const locale = this.getLanguageCode();
+      const target = targetLocales.find(
+        (targetLocale) => targetLocale === locale
+      );
+
+      if (target) {
+        setLocale(target);
+      }
+    }
   }
 
   public getCompletionSchema(): CompletionSchema {
@@ -232,12 +306,16 @@ export class Store extends RapidElement {
     return this.keyedAssets;
   }
 
+  public getFieldKeys(): string[] {
+    return this.keyedAssets['fields'] || [];
+  }
+
   public getContactField(key: string): ContactField {
     return this.fields[key];
   }
 
-  public getPinnedFields(): ContactField[] {
-    return this.pinnedFields;
+  public getFeaturedFields(): ContactField[] {
+    return this.featuredFields;
   }
 
   public getLanguageName(iso: string) {
@@ -246,7 +324,13 @@ export class Store extends RapidElement {
 
   public isDynamicGroup(uuid: string): boolean {
     const group = this.groups[uuid];
-    if (group && group.query) {
+    // we treat missing groups as dynamic since the
+    // api excludes initializing groups
+    if (!group) {
+      console.warn('No group for ' + uuid);
+    }
+
+    if (!group || group.query) {
       return true;
     }
     return false;
@@ -257,13 +341,17 @@ export class Store extends RapidElement {
   }
 
   public formatDate(dateString: string) {
-    return new Date(dateString).toLocaleString(this.locale, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-    });
+    return DateTime.fromISO(dateString)
+      .setLocale(this.getLocale())
+      .toLocaleString(DateTime.DATETIME_SHORT);
+  }
+
+  public postJSON(url: string, payload: any = '') {
+    return postJSON(url, payload);
+  }
+
+  public postForm(url: string, payload: any | FormData, headers: any = {}) {
+    return postForm(url, payload, headers);
   }
 
   public postUrl(
@@ -285,7 +373,7 @@ export class Store extends RapidElement {
   ): Promise<WebResponse> {
     options = options || {};
     if (!options.force && this.cache.has(url)) {
-      return new Promise<WebResponse>(resolve => {
+      return new Promise<WebResponse>((resolve) => {
         resolve(this.cache.get(url));
       });
     }
@@ -319,12 +407,12 @@ export class Store extends RapidElement {
     const results = this.cache.get(key);
 
     if (!options.force && results) {
-      return new Promise<any[]>(resolve => {
+      return new Promise<any[]>((resolve) => {
         resolve(results);
       });
     }
 
-    return new Promise<any[]>(resolve => {
+    return new Promise<any[]>((resolve) => {
       const pending = this.pendingResolves[url] || [];
       pending.push(resolve);
       this.pendingResolves[url] = pending;
@@ -365,12 +453,33 @@ export class Store extends RapidElement {
     if (cached && !options.force) {
       this.fireCustomEvent(CustomEventType.StoreUpdated, { url, data: cached });
     } else {
-      fetchResults(url).then(data => {
+      fetchResults(url).then((data) => {
+        if (!data) {
+          delete this.fetching[url];
+          return;
+        }
+
         data = options.prepareData ? options.prepareData(data) : data;
         this.cache.set(url, data);
         this.fireCustomEvent(CustomEventType.StoreUpdated, { url, data });
         delete this.fetching[url];
       });
+    }
+  }
+
+  public get(key: string, defaultValue: any = null) {
+    return this.settings[key] || defaultValue;
+  }
+
+  public set(key: string, value: string) {
+    this.settings[key] = value;
+    // not sure yet if we really want to perist these
+    // setCookie(COOKIE_KEYS.SETTINGS, JSON.stringify(this.settings), '/');
+  }
+
+  public render() {
+    if (!this.ready && this.loader) {
+      return html`<temba-loading size="10" units="8"></temba-loading>`;
     }
   }
 }

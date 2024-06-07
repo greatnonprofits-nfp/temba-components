@@ -1,5 +1,5 @@
 import { TemplateResult, html, css, LitElement } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 
 /**
  * A small wrapper to display labels and help text in a smartmin style.
@@ -58,7 +58,7 @@ export class FormField extends LitElement {
       }
 
       .disabled {
-        opacity: 0.6 !important;
+        opacity: var(--disabled-opacity) !important;
         pointer-events: none !important;
       }
     `;

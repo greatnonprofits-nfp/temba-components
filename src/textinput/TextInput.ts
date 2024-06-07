@@ -1,18 +1,24 @@
 import { TemplateResult, html, css } from 'lit';
-import { property } from 'lit/decorators';
-import { ifDefined } from 'lit-html/directives/if-defined';
-import { styleMap } from 'lit-html/directives/style-map';
+import { property } from 'lit/decorators.js';
+import { ifDefined } from 'lit-html/directives/if-defined.js';
+import { styleMap } from 'lit-html/directives/style-map.js';
 import { FormElement } from '../FormElement';
 import { Modax } from '../dialog/Modax';
 import { sanitize } from './helpers';
 import { CharCount } from '../charcount/CharCount';
+
+export enum InputType {
+  Text = 'text',
+  Password = 'password',
+  Number = 'number'
+}
 
 export class TextInput extends FormElement {
   static get styles() {
     return css`
       .input-container {
         border-radius: var(--curvature-widget);
-        cursor: text;
+        cursor: var(--input-cursor);
         background: var(--color-widget-bg);
         border: 1px solid var(--color-widget-border);
         transition: all ease-in-out var(--transition-speed);
@@ -44,16 +50,16 @@ export class TextInput extends FormElement {
         border-color: var(--color-focus);
         background: var(--color-widget-bg-focused);
         box-shadow: var(--widget-box-shadow-focused);
-        z-index: 10000;
         position: relative;
       }
 
       .input-container:hover {
-        background: var(--color-widget-bg-focused);
       }
 
       textarea {
         height: var(--textarea-height);
+        min-height: var(--textarea-min-height, var(--textarea-height));
+        transition: height var(--transition-speed) ease-in-out;
       }
 
       .textinput {
@@ -62,13 +68,13 @@ export class TextInput extends FormElement {
         flex: 1;
         margin: 0;
         background: none;
+        background-color: transparent;
         color: var(--color-widget-text);
         font-family: var(--font-family);
         font-size: var(--temba-textinput-font-size);
         line-height: normal;
-        cursor: text;
+        cursor: var(--input-cursor);
         resize: none;
-        font-weight: 300;
         width: 100%;
       }
 
@@ -76,11 +82,11 @@ export class TextInput extends FormElement {
         outline: none;
         box-shadow: none;
         cursor: text;
+        color: var(--color-widget-text-focused, var(--color-widget-text));
       }
 
       .textinput::placeholder {
         color: var(--color-placeholder);
-        font-weight: 300;
       }
 
       .grow-wrap {
@@ -102,12 +108,25 @@ export class TextInput extends FormElement {
         line-height: normal;
         cursor: text;
         resize: none;
-        font-weight: 300;
         width: 100%;
+        visibility: hidden;
+        word-break: break-word;
       }
 
       .grow-wrap textarea {
         margin-left: -100%;
+      }
+
+      input[type='number'] {
+        appearance: none;
+      }
+
+      input[type='number']::-webkit-inner-spin-button {
+        display: none;
+      }
+
+      .type-icon {
+        color: #e3e3e3;
       }
     `;
   }
@@ -117,9 +136,6 @@ export class TextInput extends FormElement {
 
   @property({ type: String })
   placeholder = '';
-
-  @property({ type: String })
-  value = '';
 
   @property({ type: Boolean })
   password: boolean;
@@ -152,6 +168,9 @@ export class TextInput extends FormElement {
   @property({ type: Boolean })
   autogrow = false;
 
+  @property({ type: String })
+  type = InputType.Text;
+
   counterElement: CharCount = null;
   cursorStart = -1;
   cursorEnd = -1;
@@ -182,8 +201,9 @@ export class TextInput extends FormElement {
     super.updated(changes);
 
     if (changes.has('value')) {
-      this.setValues([this.value]);
-      this.fireEvent('change');
+      if (changes.get('value') !== undefined) {
+        this.fireEvent('change');
+      }
 
       if (this.textarea && this.autogrow) {
         const autogrow = this.shadowRoot.querySelector(
@@ -207,7 +227,7 @@ export class TextInput extends FormElement {
   private handleClear(event: any): void {
     event.stopPropagation();
     event.preventDefault();
-    this.setValue(null);
+    this.value = null;
   }
 
   private updateValue(value: string): void {
@@ -248,7 +268,15 @@ export class TextInput extends FormElement {
     if (this.disabled) {
       return;
     }
+    if (this.inputElement) {
+      this.inputElement.click();
+    }
+  }
 
+  private handleContainerFocus(): void {
+    if (this.disabled) {
+      return;
+    }
     if (this.inputElement) {
       this.inputElement.focus();
     }
@@ -260,7 +288,6 @@ export class TextInput extends FormElement {
     }
 
     this.updateValue(update.target.value);
-    this.setValues([this.value]);
     this.fireEvent('input');
   }
 
@@ -314,10 +341,15 @@ export class TextInput extends FormElement {
     this.handleContainerClick();
   }
 
+  public focus(): void {
+    super.focus();
+    this.handleContainerFocus();
+  }
+
   // TODO make this a formelement and have contactsearch set the root
   public render(): TemplateResult {
     const containerStyle = {
-      height: `${this.textarea ? '100%' : 'auto'}`,
+      height: `${this.textarea ? '100%' : 'auto'}`
     };
 
     const clear =
@@ -332,8 +364,11 @@ export class TextInput extends FormElement {
     let input = html`
       <input
         class="textinput"
+        autocomplete="off"
         name=${this.name}
-        type="${this.password ? 'password' : 'text'}"
+        type="${this.password || this.type === InputType.Password
+          ? 'password'
+          : this.type}"
         maxlength="${ifDefined(this.maxlength)}"
         @change=${this.handleChange}
         @input=${this.handleInput}
@@ -347,11 +382,13 @@ export class TextInput extends FormElement {
               const parentModax = input.getParentModax();
               const parentForm = !parentModax ? input.getParentForm() : null;
 
-              this.value = this.values[0];
-              this.fireEvent('change');
-
               // if we don't have something to submit then bail
               if (!parentModax && !parentForm) {
+                return false;
+              }
+
+              // don't submit disabled forms on enter
+              if (parentModax && parentModax.disabled) {
                 return false;
               }
 
@@ -397,6 +434,7 @@ export class TextInput extends FormElement {
         <textarea
           class="textinput"
           name=${this.name}
+          maxlength="${ifDefined(this.maxlength)}"
           placeholder=${this.placeholder}
           @change=${this.handleChange}
           @input=${this.handleInput}
@@ -430,7 +468,13 @@ export class TextInput extends FormElement {
           @click=${this.handleContainerClick}
         >
           <slot name="prefix"></slot>
+
           ${input} ${clear}
+          <slot name="type" class="type-icon"
+            >${this.type === InputType.Number
+              ? html`<temba-icon name="number"></temba-icon>`
+              : null}</slot
+          >
           <slot></slot>
         </div>
       </temba-field>

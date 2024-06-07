@@ -1,6 +1,6 @@
 import { html, TemplateResult, css, LitElement } from 'lit';
-import { property } from 'lit/decorators';
-import { styleMap } from 'lit-html/directives/style-map';
+import { property } from 'lit/decorators.js';
+import { styleMap } from 'lit-html/directives/style-map.js';
 import { range } from '../utils';
 
 export class Loading extends LitElement {
@@ -63,7 +63,7 @@ export class Loading extends LitElement {
             height: this.size + 'px',
             margin: margin + 'px',
             animationDelay: `-${1 - num * (1 / this.units)}s`,
-            background: this.color,
+            background: this.color
           };
           return html`
             <div class="loading-unit" style=${styleMap(ballStyle)}></div>

@@ -1,44 +1,36 @@
 import { css, html, TemplateResult } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { Contact, CustomEventType, Ticket } from '../interfaces';
-import { COOKIE_KEYS, getCookieBoolean, postJSON, setCookie } from '../utils';
-import { TextInput } from '../textinput/TextInput';
-import { Completion } from '../completion/Completion';
+import { postJSON } from '../utils';
 import { ContactHistory } from './ContactHistory';
-import { Modax } from '../dialog/Modax';
 import { ContactStoreElement } from './ContactStoreElement';
+import { Compose } from '../compose/Compose';
 
 const DEFAULT_REFRESH = 10000;
 
 export class ContactChat extends ContactStoreElement {
   public static get styles() {
     return css`
-      .left-pane {
-        box-shadow: -13px 10px 7px 14px rgba(0, 0, 0, 0);
-        transition: box-shadow 600ms linear;
-      }
-
-      .left-pane.open {
-        z-index: 1000;
-      }
-
       :host {
         flex-grow: 1;
         display: flex;
         flex-direction: row;
         min-height: 0;
-        border-radius: var(--curvature);
+        --compose-shadow: none;
+        --compose-border: none;
+        --compose-padding: 3px;
+        --compose-curvature: none;
       }
 
       .chat-wrapper {
         display: flex;
         flex-grow: 1;
         flex-direction: column;
-        overflow: hidden;
         min-height: 0;
       }
 
       temba-contact-history {
+        border-bottom: 1px solid #f6f6f6;
         flex-grow: 1;
         display: flex;
         flex-direction: column;
@@ -46,14 +38,16 @@ export class ContactChat extends ContactStoreElement {
       }
 
       .chatbox {
-        padding: 1em;
-        background: #f2f2f2;
-        border-top: 3px solid #e1e1e1;
+        box-shadow: 0px -5px 1rem 0rem rgba(0, 0, 0, 0.07);
         display: flex;
         flex-direction: column;
-        z-index: 3;
-        border-bottom-left-radius: var(--curvature);
-        border-bottom-right-radius: var(--curvature);
+        --textarea-min-height: 1em;
+        --textarea-height: 1.2em;
+        --widget-box-shadow-focused: none;
+      }
+
+      .chatbox:focus-within {
+        --textarea-height: 4em;
       }
 
       .chatbox.full {
@@ -69,10 +63,6 @@ export class ContactChat extends ContactStoreElement {
         align-items: center;
       }
 
-      temba-completion {
-        --textarea-height: 2.5em;
-      }
-
       a {
         color: var(--color-link-primary);
       }
@@ -82,83 +72,17 @@ export class ContactChat extends ContactStoreElement {
         color: var(--color-link-primary-hover);
       }
 
-      temba-button#send-button {
-        --button-y: 1px;
-        --button-x: 12px;
-        margin-top: 0.8em;
-        align-self: flex-end;
-      }
-
       temba-button#reopen-button {
         --button-y: 1px;
         --button-x: 12px;
       }
 
-      .toolbar {
-        position: relative;
-        width: 2.5em;
-        background: #e6e6e6;
-        transition: all 600ms ease-in;
-        z-index: 10;
-        flex-shrink: 0;
-        border-top-right-radius: var(--curvature);
-        border-bottom-right-radius: var(--curvature);
-        padding: 0.5em 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        overflow: hidden;
-      }
-
-      .toolbar temba-icon {
-        fill: rgb(60, 60, 60);
-        margin-bottom: 0.5em;
-      }
-
-      .toolbar.closed {
-        box-shadow: inset 10px 0px 10px -11px rgb(0 0 0 / 15%);
-      }
-
-      temba-contact-details {
-        flex-basis: 16em;
-        flex-grow: 0;
-        flex-shrink: 0;
-        transition: margin 600ms cubic-bezier(0.68, -0.55, 0.265, 1.05),
-          opacity 600ms ease-in-out 200ms;
-        z-index: 5;
-      }
-
-      temba-contact-details.hidden {
-        margin-right: -16em;
-        opacity: 0;
-      }
-
-      @media only screen and (max-width: 768px) {
-        temba-contact-details {
-          flex-basis: 12em;
-          flex-shrink: 0;
-        }
-
-        temba-contact-details.hidden {
-          margin-right: -12em;
-        }
-      }
-
-      #close-button,
-      #open-button {
-        margin-top: 1em;
-      }
-
-      #details-button {
-        margin-top: 0.25em;
-        transform: rotate(180deg);
-      }
-
-      #note-dialog,
-      #assign-dialog {
-        --header-bg: rgb(255, 249, 194);
-        --header-text: #555;
-        --textarea-height: 5em;
+      temba-completion {
+        --widget-box-shadow: none;
+        --color-widget-border: transparent;
+        --widget-box-shadow-focused: none;
+        --color-focus: transparent;
+        --color-widget-bg-focused: transparent;
       }
     `;
   }
@@ -170,16 +94,10 @@ export class ContactChat extends ContactStoreElement {
   contactsEndpoint = '/api/v2/contacts.json';
 
   @property({ type: String })
-  currentChat = '';
-
-  @property({ type: String })
   currentNote = '';
 
   @property({ type: Boolean })
   showDetails = true;
-
-  @property({ type: Boolean })
-  toolbar = false;
 
   @property({ type: Boolean })
   monitor = false;
@@ -193,9 +111,11 @@ export class ContactChat extends ContactStoreElement {
   @property({ type: String })
   agent = '';
 
+  // http promise to monitor for completeness
+  public httpComplete: Promise<void>;
+
   constructor() {
     super();
-    this.showDetails = getCookieBoolean(COOKIE_KEYS.TICKET_SHOW_DETAILS);
   }
 
   refreshInterval = null;
@@ -231,6 +151,7 @@ export class ContactChat extends ContactStoreElement {
         contactHistory.scrollToBottom();
       }
       contactHistory.refresh();
+      // super.refresh();
     }
   }
 
@@ -243,238 +164,137 @@ export class ContactChat extends ContactStoreElement {
       changedProperties.has('currentContact')
     ) {
       this.currentContact = this.data;
-      // focus our completion on load
-      const prevContact = changedProperties.get('contact');
-      if (
-        !prevContact ||
-        (this.currentContact &&
-          this.currentContact.ticket &&
-          this.currentContact.ticket.uuid !== prevContact.ticket.uuid)
-      ) {
-        const completion = this.shadowRoot.querySelector(
-          'temba-completion'
-        ) as Completion;
-        if (completion) {
-          window.setTimeout(() => {
-            completion.click();
-          }, 0);
+    }
+  }
+
+  private handleSend(evt: CustomEvent) {
+    const buttonName = evt.detail.name;
+    if (buttonName === 'Send') {
+      const payload = {
+        contact: this.currentContact.uuid
+      };
+      const compose = evt.currentTarget as Compose;
+      if (compose) {
+        const text = compose.currentText;
+        if (text && text.length > 0) {
+          payload['text'] = text;
+        }
+        const attachments = compose.currentAttachments;
+        if (attachments && attachments.length > 0) {
+          const attachment_uuids = attachments.map(
+            (attachment) => attachment.uuid
+          );
+          payload['attachments'] = attachment_uuids;
         }
       }
-    }
-  }
+      if (this.currentTicket) {
+        payload['ticket'] = this.currentTicket.uuid;
+      }
 
-  private handleChatChange(event: Event) {
-    event.stopPropagation();
-    event.preventDefault();
+      const genericError = buttonName + ' failed, please try again.';
 
-    const chat = event.currentTarget as TextInput;
-    this.currentChat = chat.value;
-  }
-
-  private handleReopen() {
-    const uuid = this.currentTicket.uuid;
-    postJSON(`/api/v2/ticket_actions.json`, {
-      tickets: [uuid],
-      action: 'reopen',
-    })
-      .then(() => {
-        this.refresh();
-        this.fireCustomEvent(CustomEventType.ContentChanged, {
-          ticket: { uuid, status: 'open' },
+      postJSON(`/api/v2/messages.json`, payload)
+        .then((response) => {
+          if (response.status < 400) {
+            compose.reset();
+            this.refresh(true);
+            this.fireCustomEvent(CustomEventType.MessageSent, { msg: payload });
+          } else if (response.status < 500) {
+            if (
+              response.json.text &&
+              response.json.text.length > 0 &&
+              response.json.text[0].length > 0
+            ) {
+              let textError = response.json.text[0];
+              textError = textError.replace(
+                'Ensure this field has no more than',
+                'Maximum allowed text is'
+              );
+              compose.buttonError = textError;
+            } else if (
+              response.json.attachments &&
+              response.json.attachments.length > 0 &&
+              response.json.attachments[0].length > 0
+            ) {
+              let attachmentError = response.json.attachments[0];
+              attachmentError = attachmentError
+                .replace(
+                  'Ensure this field has no more than',
+                  'Maximum allowed attachments is'
+                )
+                .replace('elements', 'files');
+              compose.buttonError = attachmentError;
+            } else {
+              compose.buttonError = genericError;
+            }
+          } else {
+            compose.buttonError = genericError;
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+          compose.buttonError = genericError;
         });
-      })
-      .catch((response: any) => {
-        console.error(response);
-      });
-  }
-
-  private handleSend() {
-    const payload = {
-      contacts: [this.currentContact.uuid],
-      text: this.currentChat,
-    };
-
-    if (this.currentTicket) {
-      payload['ticket'] = this.currentTicket.uuid;
     }
-
-    postJSON(`/api/v2/broadcasts.json`, payload)
-      .then(() => {
-        this.currentChat = '';
-        this.refresh(true);
-      })
-      .catch(err => {
-        // error message dialog?
-        console.error(err);
-      });
-  }
-
-  private handleTicketAssigned() {
-    this.refresh();
-    this.getContactHistory().checkForAgentAssignmentEvent(this.agent);
-  }
-
-  private handleDetailSlider(): void {
-    this.showDetails = !this.showDetails;
-    setCookie(COOKIE_KEYS.TICKET_SHOW_DETAILS, this.showDetails);
   }
 
   public render(): TemplateResult {
-    return html`
-      <div
-        style="flex-grow: 1; margin-right: 0em; display:flex; flex-direction:row; min-height: 0;"
-        class="left-pane  ${this.showDetails ? 'open' : ''}"
-      >
-        <div class="chat-wrapper">
-          ${this.currentContact
-            ? html`<temba-contact-history
-                    .uuid=${this.currentContact.uuid}
-                    .contact=${this.currentContact}
-                    .ticket=${
-                      this.currentTicket ? this.currentTicket.uuid : null
-                    }
-                    .endDate=${
-                      this.currentTicket ? this.currentTicket.closed_on : null
-                    }
-                    .agent=${this.agent}
-                  ></temba-contact-history>
+    const contactHistory = this.currentContact
+      ? this.getTembaContactHistory()
+      : null;
+    const chatbox = this.currentContact ? this.getTembaChatbox() : null;
 
-                  ${
-                    this.currentTicket && this.currentTicket.closed_on
-                      ? html`<div class="closed-footer">
-                          <temba-button
-                            id="reopen-button"
-                            name="Reopen"
-                            @click=${this.handleReopen}
-                          ></temba-button>
-                        </div>`
-                      : html` <div
-                          class="chatbox ${this.toolbar ? 'full' : ''}"
-                          style="${this.currentContact.status !== 'active'
-                            ? 'display:none'
-                            : ''}"
-                        >
-                          <temba-completion
-                            @change=${this.handleChatChange}
-                            .value=${this.currentChat}
-                            @keydown=${(e: KeyboardEvent) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                const chat = e.target as Completion;
-                                if (!chat.hasVisibleOptions()) {
-                                  this.handleSend();
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }
-                              }
-                            }}
-                            textarea
-                          >
-                          </temba-completion>
-                          <temba-button
-                            id="send-button"
-                            name="Send"
-                            @click=${this.handleSend}
-                            ?disabled=${this.currentChat.trim().length === 0}
-                          ></temba-button>
-                        </div>`
-                  }
-                  </div>`
-            : null}
-        </div>
-      </div>
-
-      ${this.toolbar
-        ? html`${
-            this.currentContact
-              ? html`<temba-contact-details
-                  style="z-index: 10"
-                  class="${this.showDetails ? '' : 'hidden'}"
-                  showGroups="true"
-                  .visible=${this.showDetails}
-                  .ticket=${this.currentTicket}
-                  .contact=${this.currentContact}
-                ></temba-contact-details>`
-              : null
-          }
-
-        <div class="toolbar ${this.showDetails ? '' : 'closed'}">
-          ${
-            this.currentContact
-              ? html`
-                  <temba-tip
-                    style="margin-top:5px"
-                    text="${this.showDetails ? 'Hide Details' : 'Show Details'}"
-                    position="left"
-                    hideOnChange
-                  >
-                    <temba-icon
-                      id="details-button"
-                      name="${this.showDetails ? 'chevrons-left' : 'sidebar'}"
-                      @click="${this.handleDetailSlider}"
-                      clickable
-                      animatechange="spin"
-                    ></temba-icon>
-                  </temba-tip>
-
-                  ${this.currentTicket
-                    ? html`<temba-tip
-                          style="margin-top:5px"
-                          text="Assign"
-                          position="left"
-                        >
-                          <temba-icon
-                            id="assign-button"
-                            name="user"
-                            @click="${() => {
-                              const modax = this.shadowRoot.getElementById(
-                                'assign-dialog'
-                              ) as Modax;
-                              modax.open = true;
-                            }}"
-                            clickable
-                          ></temba-icon>
-                        </temba-tip>
-                        <temba-tip
-                          style="margin-top:5px"
-                          text="Add Note"
-                          position="left"
-                        >
-                          <temba-icon
-                            id="add-note-button"
-                            name="edit"
-                            @click="${() => {
-                              const note = this.shadowRoot.getElementById(
-                                'note-dialog'
-                              ) as Modax;
-                              note.open = true;
-                            }}"
-                            clickable
-                          ></temba-icon>
-                        </temba-tip>`
-                    : null}
-                `
-              : null
-          }
-        </div>
-      </div>
-
-      ${
-        this.currentTicket
-          ? html`<temba-modax
-              header="Add Note"
-              id="note-dialog"
-              @temba-submitted=${this.refresh}
-              endpoint="/ticket/note/${this.currentTicket.uuid}/"
-            ></temba-modax>
-            <temba-modax
-              header="Assign Ticket"
-              id="assign-dialog"
-              @temba-submitted=${this.handleTicketAssigned}
-              endpoint="/ticket/assign/${this.currentTicket.uuid}/"
-            /></temba-modax>`
-          : null
-      }`
-        : null}
+    const contactHistoryAndChatbox = html`
+      <div class="chat-wrapper">${contactHistory} ${chatbox}</div>
     `;
+    return html`${contactHistoryAndChatbox}`;
+  }
+
+  private getTembaContactHistory(): TemplateResult {
+    return html` <temba-contact-history
+      .uuid=${this.currentContact.uuid}
+      .contact=${this.currentContact}
+      .ticket=${this.currentTicket ? this.currentTicket.uuid : null}
+      .endDate=${this.currentTicket ? this.currentTicket.closed_on : null}
+      .agent=${this.agent}
+    >
+    </temba-contact-history>`;
+  }
+
+  private getTembaChatbox(): TemplateResult {
+    if (this.currentTicket) {
+      if (this.currentContact && this.currentContact.status !== 'active') {
+        //no chatbox for archived, blocked, or stopped contacts
+        return null;
+      } else {
+        if (!this.currentTicket.closed_on) {
+          //chatbox for active contacts with an open ticket
+          return this.getChatbox();
+        } else {
+          return null;
+        }
+      }
+    }
+
+    if (this.currentContact && this.currentContact.status !== 'active') {
+      //no chatbox for archived, blocked, or stopped contacts
+      return null;
+    } else {
+      //chatbox for active contacts
+      return this.getChatbox();
+    }
+  }
+
+  private getChatbox(): TemplateResult {
+    return html`<div class="chatbox">
+      <temba-compose
+        chatbox
+        attachments
+        counter
+        button
+        @temba-button-clicked=${this.handleSend.bind(this)}
+      >
+      </temba-compose>
+    </div>`;
   }
 }

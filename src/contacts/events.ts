@@ -1,6 +1,7 @@
 import { css, html, TemplateResult } from 'lit';
 import { Msg, ObjectReference, User } from '../interfaces';
-import { getClasses, oxford, oxfordFn, oxfordNamed, timeSince } from '../utils';
+import { getClasses, oxford, oxfordFn, oxfordNamed } from '../utils';
+import { Icon } from '../vectoricon';
 import { getDisplayName } from './helpers';
 
 export const getEventStyles = () => {
@@ -19,6 +20,7 @@ export const getEventStyles = () => {
       margin-right: -16px;
       padding-right: 16px;
       margin-bottom: 1.3em;
+      max-width: 100%;
     }
 
     .grouping .items {
@@ -30,7 +32,7 @@ export const getEventStyles = () => {
       max-height: 0;
       display: flex;
       flex-direction: column;
-      user-select: none;
+      user-select: auto;
     }
 
     .grouping.flows .items {
@@ -90,7 +92,6 @@ export const getEventStyles = () => {
       cursor: pointer;
       width: 100%;
       opacity: 1;
-      z-index: 1;
     }
 
     .event-count temba-icon {
@@ -164,10 +165,20 @@ export const getEventStyles = () => {
     }
 
     .msg {
-      padding: var(--event-padding);
-      border-radius: 8px;
+      border-radius: calc(var(--curvature) * 2.5);
       border: 2px solid rgba(100, 100, 100, 0.1);
       max-width: 300px;
+      word-break: break-word;
+      overflow: hidden;
+    }
+
+    .msg.attachments-1.no-message {
+      border: 2px solid transparent;
+      background-color: transparent !important;
+    }
+
+    .msg .text {
+      padding: var(--event-padding);
     }
 
     .event.msg_received .msg {
@@ -177,23 +188,37 @@ export const getEventStyles = () => {
     .event.msg_created,
     .event.broadcast_created,
     .event.ivr_created,
-    .tickets .event.ticket_note_added {
+    .event.ticket_note_added {
       align-self: flex-end;
     }
 
     .event.msg_created .msg,
     .event.broadcast_created .msg,
     .event.ivr_created .msg {
-      background: rgb(231, 243, 255);
+      background: var(--color-primary-dark);
+      color: white;
+      font-weight: 400;
+    }
+
+    .msg.automated {
+      background: var(--color-automated) !important;
+    }
+
+    .queued {
+      opacity: 0.3;
+    }
+
+    .optin_requested {
+      --icon-color: var(--color-primary-dark);
     }
 
     .webhook_called {
-      fill: #e68628;
+      --icon-color: #e68628;
       word-break: break-all;
     }
 
     .webhook_called .failed {
-      fill: var(--color-error);
+      --icon-color: var(--color-error);
       color: var(--color-error);
     }
 
@@ -203,18 +228,18 @@ export const getEventStyles = () => {
     .contact_urns_changed,
     .contact_language_changed,
     .run_result_changed {
-      fill: rgba(1, 193, 175, 1);
+      --icon-color: rgba(1, 193, 175, 1);
     }
 
     .email_sent {
-      fill: #8e5ea7;
+      --icon-color: #8e5ea7;
     }
 
     .contact_groups_changed .added {
-      fill: #309c42;
+      --icon-color: #309c42;
     }
     .contact_groups_changed .removed {
-      fill: var(--color-error);
+      --icon-color: var(--color-error);
     }
 
     .event.error .description,
@@ -231,28 +256,30 @@ export const getEventStyles = () => {
       background: rgba(10, 10, 10, 0.02);
     }
 
-    .tickets .ticket_note_added {
+    .ticket_note_added {
       max-width: 300px;
     }
 
-    .tickets .note-summary {
+    .note-summary {
       display: flex;
       flex-direction: row;
-      line-height: 0.5;
-      font-size: 80%;
+      font-size: 85%;
+      margin-top: -0.5em;
       color: rgba(0, 0, 0, 0.6);
       padding: 8px 3px;
     }
 
-    .tickets .ticket_note_added .description {
+    .ticket_note_added .description {
       border: 2px solid rgba(100, 100, 100, 0.1);
       background: rgb(255, 249, 194);
       padding: var(--event-padding);
-      border-radius: 8px;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.6);
+      border-radius: calc(var(--curvature) * 2.5);
     }
 
     .channel_event {
-      fill: rgb(230, 230, 230);
+      --icon-color: rgb(200, 200, 200);
     }
 
     .airtime_transferred,
@@ -263,19 +290,11 @@ export const getEventStyles = () => {
     .ticket_closed,
     .call_started,
     .campaign_fired {
-      fill: rgba(223, 65, 159, 1);
+      --icon-color: rgba(223, 65, 159, 1);
     }
 
     .active-ticket.ticket_opened {
       padding: 0em 1em;
-    }
-
-    .ticket_opened temba-icon.clickable[name='check'] {
-      fill: rgba(100, 100, 100, 1);
-    }
-
-    .ticket_opened .active {
-      color: var(--color-text);
     }
 
     .ticket_closed .inactive .subtext {
@@ -309,33 +328,32 @@ export const getEventStyles = () => {
 
     .msg-summary {
       display: flex;
-      line-height: 0.5;
-
-      font-size: 80%;
+      font-size: 85%;
       color: rgba(0, 0, 0, 0.6);
       padding: 6px 3px;
       margin-bottom: 0.5em;
+      margin-top: -0.5em;
     }
 
-    .msg-summary temba-icon[name='log'] {
+    .msg-summary temba-icon.log {
       --icon-color: rgba(0, 0, 0, 0.2);
     }
 
-    .msg-summary temba-icon[name='log']:hover {
+    .msg-summary temba-icon.log:hover {
       --icon-color: var(--color-link-primary-hover);
       cursor: pointer;
     }
 
-    .msg-summary temba-icon.error[name='log'] {
+    .msg-summary temba-icon.error {
       --icon-color: rgba(var(--error-rgb), 0.75);
     }
 
-    .msg-summary temba-icon.error[name='log']:hover {
+    .msg-summary temba-icon.error:hover {
       --icon-color: var(--color-error);
       cursor: pointer;
     }
 
-    .msg-summary temba-icon[name='megaphone'] {
+    .msg-summary temba-icon.broadcast {
       --icon-color: rgba(90, 90, 90, 0.5);
     }
 
@@ -352,8 +370,17 @@ export const getEventStyles = () => {
       border-radius: var(--curvature);
     }
 
+    .optin {
+      align-items: center;
+      padding: 0 0.2em;
+    }
+
     .time {
       padding: 0.3em 1px;
+    }
+
+    .subtext .time {
+      padding: 0em;
     }
 
     .status {
@@ -374,13 +401,12 @@ export const getEventStyles = () => {
       margin-right: 0.75em;
     }
 
-    temba-icon[name='check'] {
-    }
-
     .attn {
       display: inline-block;
       font-weight: 500;
       margin: 0px 2px;
+      word-break: break-all;
+      white-space: break-spaces;
     }
 
     .subtext {
@@ -405,12 +431,17 @@ export const getEventStyles = () => {
       color: var(--color-link-primary-hover);
     }
 
-    temba-icon[name='alert-triangle'] {
+    temba-icon.error {
       --icon-color: var(--color-error);
     }
 
+    .delivery-error {
+      --icon-color: var(--color-error);
+      margin-right: 0.25em;
+    }
+
     .flow {
-      fill: #ddd;
+      --icon-color: #ddd;
       background: #fff;
       width: 18px;
       height: 18px;
@@ -435,12 +466,20 @@ export const getEventStyles = () => {
     }
 
     .attachments {
-      margin-top: 1em;
+      display: flex;
+      flex-wrap: wrap;
+      margin: -0.2em;
+    }
+
+    .attachment {
+      flex: 1 0 45%;
+      border-top: 0.05em solid transparent;
+      border-left: 0.05em solid transparent;
+      margin-top: 0.05em;
+      margin-left: 0.05em;
     }
   `;
 };
-
-const FLOW_USER_ID = 'flow';
 
 export interface EventGroup {
   type: string;
@@ -474,8 +513,9 @@ export enum Events {
   TICKET_CLOSED = 'ticket_closed',
   TICKET_OPENED = 'ticket_opened',
   TICKET_REOPENED = 'ticket_reopened',
+  OPTIN_REQUESTED = 'optin_requested',
   ERROR = 'error',
-  FAILURE = 'failure',
+  FAILURE = 'failure'
 }
 
 export interface ContactEvent {
@@ -486,12 +526,29 @@ export interface ContactEvent {
 export interface ChannelEvent extends ContactEvent {
   channel_event_type: string;
   duration: number;
+
+  event: {
+    type: string;
+    channel: { uuid: string; name: string };
+    duration?: number;
+    optin?: {
+      uuid: string;
+      name: string;
+    };
+  };
 }
 
 export interface ContactLanguageChangedEvent extends ContactEvent {
   language: string;
   step_uuid: string;
   session_uuid: string;
+}
+
+export interface OptinRequestedEvent extends ContactEvent {
+  optin: {
+    uuid: string;
+    name: string;
+  };
 }
 
 export interface MsgEvent extends ContactEvent {
@@ -503,6 +560,7 @@ export interface MsgEvent extends ContactEvent {
   msg_type: string;
   recipient_count?: number;
   created_by?: User;
+  optin?: ObjectReference;
 }
 
 export interface FlowEvent extends ContactEvent {
@@ -525,10 +583,8 @@ export interface TicketEvent extends ContactEvent {
   assignee?: User;
   ticket: {
     uuid: string;
-    ticketer: ObjectReference;
     body: string;
     topic?: ObjectReference;
-    external_id?: string;
     closed_on?: string;
     opened_on?: string;
   };
@@ -605,9 +661,9 @@ export const getEventGroupType = (event: ContactEvent, ticket: string) => {
   if (!event) {
     return 'messages';
   }
+
   switch (event.type) {
     case Events.TICKET_ASSIGNED:
-    case Events.TICKET_NOTE_ADDED:
     case Events.TICKET_OPENED:
     case Events.TICKET_CLOSED:
     case Events.TICKET_REOPENED:
@@ -627,41 +683,11 @@ export const getEventGroupType = (event: ContactEvent, ticket: string) => {
     case Events.MESSAGE_CREATED:
     case Events.MESSAGE_RECEIVED:
     case Events.IVR_CREATED:
+    case Events.TICKET_NOTE_ADDED:
+    case Events.NOTE_CREATED:
       return 'messages';
   }
   return 'verbose';
-};
-
-export const renderAvatar = (user: User, agent = '') => {
-  const current = user && user.email === agent;
-  if (user.email === FLOW_USER_ID || !user || !user.first_name) {
-    return html`<temba-tip text="Automated message" position="top"
-      ><div class="avatar flow" style="margin-top:0.5em">
-        <temba-icon size="1" name="activity" /></div
-    ></temba-tip>`;
-  } else {
-    return html`<temba-tip
-      text="${user.first_name + ' ' + user.last_name}"
-      position="top"
-    >
-      <div
-        class="avatar"
-        style="
-          border-radius: 9999px; 
-          display:flex;
-          align-items:center;
-          border: 2px solid rgba(0,0,0,.05);
-          background: ${current ? 'var(--color-primary-dark)' : '#eee'};
-          color: ${current ? '#fff' : '#999'} ;
-          font-weight: 400;
-          padding: 0.5em;
-          line-height:1.2em;
-        "
-      >
-        ${user.first_name[0] + user.last_name[0]}
-      </div>
-    </temba-tip>`;
-  }
 };
 
 export const renderAttachment = (attachment: string): TemplateResult => {
@@ -672,10 +698,12 @@ export const renderAttachment = (attachment: string): TemplateResult => {
 
   let inner = null;
   if (mediaType === 'image') {
-    inner = html`<div class="linked" onclick="goto(event)" href="${url}"><img src="${url}" style="width:100%;height:auto;display:block"></img></a>`;
+    inner = html`
+      <img src="${url}" style="height:auto;width:100%;display:block;" />
+    `;
   } else if (ext === 'pdf') {
     return html`<div
-      style="width:100%;height:300px;border-radius:var(--curvature);box-shadow:0px 0px 12px 0px rgba(0,0,0,.1), 0px 0px 2px 0px rgba(0,0,0,.15);overflow:hidden"
+      style="width:100%;height:300px;border-radius:calc(var(--curvature) * 2.5);box-shadow:0px 0px 12px 0px rgba(0,0,0,.1), 0px 0px 2px 0px rgba(0,0,0,.15);overflow:hidden"
     ><embed src="${url}#view=Fit" type="application/pdf" frameBorder="0" scrolling="auto" height="100%" width="100%"></embed></div>`;
   } else if (mediaType === 'video') {
     return html`<video
@@ -715,106 +743,146 @@ export const renderAttachment = (attachment: string): TemplateResult => {
     ></iframe>`;
   } else {
     return html`<div style="display:flex">
-      <temba-icon name="download"></temba-icon>
+      <temba-icon name="${Icon.download}"></temba-icon>
       <div>Attachment ${ext}</div>
     </div>`;
   }
 
-  return html`<div
-    style="width:100%;max-width:300px;border-radius:var(--curvature); box-shadow:0px 0px 6px 0px rgba(0,0,0,.15);overflow:hidden"
-  >
-    ${inner}
-  </div>`;
+  return html`<div style="">${inner}</div>`;
 };
 
-export const renderMsgEvent = (
-  event: MsgEvent,
-  agent: string
-): TemplateResult => {
+export const renderMsgEvent = (event: MsgEvent): TemplateResult => {
   const isInbound = event.type === Events.MESSAGE_RECEIVED;
   const isError = event.status === 'E';
   const isFailure = event.status === 'F';
 
   // summary items which appear under the message bubble
   const summary: TemplateResult[] = [];
+
   if (event.logs_url) {
     summary.push(html` <div class="icon-link">
       <temba-icon
         onclick="goto(event)"
         href="${event.logs_url}"
-        name="log"
-        class="${isError || isFailure ? 'error' : ''}"
+        name="${Icon.log}"
+        class="log ${isError || isFailure ? 'error' : ''}"
       ></temba-icon>
     </div>`);
   } else if (isError) {
     summary.push(
       html`<temba-icon
         title="Message delivery error"
-        name="alert-triangle"
+        name="${Icon.error}"
+        class="delivery-error"
       ></temba-icon>`
     );
   } else if (isFailure) {
     summary.push(
       html`<temba-icon
         title="Message delivery failure: ${event.failed_reason_display}"
-        name="alert-triangle"
+        name="${Icon.error}"
+        class="delivery-error"
       ></temba-icon>`
     );
   }
-  if (event.recipient_count > 1) {
-    summary.push(html`<temba-icon size="1" name="megaphone"></temba-icon>
-      <div class="recipients">${event.recipient_count} contacts</div>
-      <div class="separator">•</div>`);
+
+  if (event.type == 'broadcast_created') {
+    summary.push(html`<temba-icon
+      size="1"
+      class="broadcast"
+      name="${Icon.broadcast}"
+    ></temba-icon>`);
+
+    if (event.recipient_count > 1) {
+      summary.push(
+        html`<div class="recipients">${event.recipient_count} contacts</div>`
+      );
+    }
+    summary.push(html`<div class="separator">•</div>`);
   }
+
+  if (event.optin) {
+    summary.push(
+      html`<div class="optin">${event.optin.name}</div>
+        <div class="separator">•</div>`
+    );
+  }
+
+  if (event.status === 'Q') {
+    summary.push(html`<div>Queued</div>`);
+  }
+
   summary.push(
-    html`<div class="time">${timeSince(new Date(event.created_on))}</div>`
+    html`<temba-date
+      class="time"
+      value="${event.created_on}"
+      display="duration"
+    ></temba-date>`
   );
 
-  return html`<div style="display:flex;align-items:flex-start">
+  return html`<div
+    style="display:flex;align-items:flex-start"
+    class=${getClasses({ queued: event.status === 'Q' })}
+  >
     <div style="display:flex;flex-direction:column">
-      ${event.msg.text ? html`<div class="msg">${event.msg.text}</div>` : null}
-      ${event.msg.attachments
-        ? html`<div class="attachments">
-            ${event.msg.attachments.map(attachment =>
-              renderAttachment(attachment)
-            )}
-          </div> `
-        : null}
-      ${!event.msg.text && !event.msg.attachments
+      <div
+        class="${event.msg.text ? '' : 'no-message'} attachments-${(
+          event.msg.attachments || []
+        ).length} ${getClasses({
+          msg: true,
+          automated: !isInbound && !event.created_by
+        })}"
+      >
+        ${event.msg.text
+          ? html` <div class="text">${event.msg.text}</div> `
+          : null}
+        ${event.msg.attachments
+          ? html`<div class="attachments">
+              ${event.msg.attachments.map(
+                (attachment) =>
+                  html` <div class="attachment">
+                    ${renderAttachment(attachment)}
+                  </div>`
+              )}
+            </div> `
+          : null}
+      </div>
+
+      ${!event.msg.text && !event.msg.attachments && !event.optin
         ? html`<div class="unsupported">Unsupported Message</div>`
         : null}
+
       <div
         class="msg-summary"
-        style="flex-direction:row${isInbound ? '-reverse' : ''}"
+        style="align-items:center;flex-direction:row${isInbound
+          ? '-reverse'
+          : ''}"
       >
         <div style="flex-grow:1"></div>
         ${summary}
       </div>
     </div>
 
-    ${!isInbound
-      ? html`<div style="margin-left:0.8em;margin-top:0.3em">
-          ${event.msg.created_by
-            ? html`<div style="font-size:0.8em">
-                ${renderAvatar(event.msg.created_by, agent)}
-              </div>`
-            : renderAvatar({ email: FLOW_USER_ID })}
-        </div>`
+    ${!isInbound && event.created_by
+      ? html`<temba-user
+          style="margin-left:0.5em"
+          email=${event.created_by.email}
+        ></temba-user>`
       : null}
   </div>`;
 };
 
 export const renderFlowEvent = (event: FlowEvent): TemplateResult => {
   let verb = 'Interrupted';
-  let icon = 'x-octagon';
+  let icon = Icon.flow_interrupted;
 
   if (event.status !== 'I') {
     if (event.type === Events.FLOW_ENTERED) {
       verb = 'Started';
-      icon = 'flow';
+      icon = Icon.flow;
     } else {
       verb = 'Completed';
-      icon = 'flow';
+      icon = Icon.flow;
     }
   }
 
@@ -838,7 +906,7 @@ export const renderResultEvent = (event: UpdateResultEvent): TemplateResult => {
     return null;
   }
   return html`
-    <temba-icon name="flow"></temba-icon>
+    <temba-icon name="${Icon.updated}"></temba-icon>
     <div class="description">
       Updated
       <div class="attn">${event.name}</div>
@@ -854,7 +922,7 @@ export const renderResultEvent = (event: UpdateResultEvent): TemplateResult => {
 
 export const renderUpdateEvent = (event: UpdateFieldEvent): TemplateResult => {
   return html`
-    <temba-icon name="contact"></temba-icon>
+    <temba-icon name="${Icon.contact_updated}"></temba-icon>
     <div class="description">
       ${event.value
         ? html`Updated
@@ -869,7 +937,7 @@ export const renderUpdateEvent = (event: UpdateFieldEvent): TemplateResult => {
 
 export const renderNameChanged = (event: NameChangedEvent): TemplateResult => {
   return html`
-    <temba-icon name="contact"></temba-icon>
+    <temba-icon name="${Icon.contact_updated}"></temba-icon>
     <div class="description">
       Updated
       <div class="attn">Name</div>
@@ -883,7 +951,7 @@ export const renderContactURNsChanged = (
   event: URNsChangedEvent
 ): TemplateResult => {
   return html`
-    <temba-icon name="contact"></temba-icon>
+    <temba-icon name="${Icon.contact_updated}"></temba-icon>
     <div class="description">
       Updated
       <div class="attn">URNs</div>
@@ -900,7 +968,7 @@ export const renderContactURNsChanged = (
 
 export const renderEmailSent = (event: EmailSentEvent): TemplateResult => {
   return html`
-    <temba-icon name="mail"></temba-icon>
+    <temba-icon name="${Icon.email}"></temba-icon>
     <div class="description">
       Email sent to
       <div class="attn">${oxford(event.to, 'and')}</div>
@@ -912,7 +980,7 @@ export const renderEmailSent = (event: EmailSentEvent): TemplateResult => {
 
 export const renderLabelsAdded = (event: LabelsAddedEvent): TemplateResult => {
   return html`
-    <temba-icon name="tag"></temba-icon>
+    <temba-icon name="${Icon.label}"></temba-icon>
     <div class="description">
       Message labeled with
       <div class="attn">${oxfordNamed(event.labels, 'and')}</div>
@@ -920,32 +988,21 @@ export const renderLabelsAdded = (event: LabelsAddedEvent): TemplateResult => {
   `;
 };
 
-export const renderNoteCreated = (
-  event: TicketEvent,
-  agent: string
-): TemplateResult => {
-  return html`<div style="display:flex;align-items:flex-start">
+export const renderNoteCreated = (event: TicketEvent): TemplateResult => {
+  return html` <div style="display:flex;align-items:flex-start">
     <div style="display:flex;flex-direction:column">
       <div class="description">${event.note}</div>
       <div class="note-summary">
         <div style="flex-grow:1"></div>
-        <div class="time">${timeSince(new Date(event.created_on))}</div>
+        <temba-date
+          class="time"
+          value="${event.created_on}"
+          display="duration"
+        ></temba-date>
       </div>
     </div>
-    <div style="margin-left:0.8em;margin-top:0.3em;font-size:0.8em">
-      ${renderAvatar(event.created_by, agent)}
-    </div>
+    <temba-user email=${event.created_by.email}></temba-user>
   </div>`;
-};
-
-const getTicketIcon = (event: TicketEvent) => {
-  let icon = 'inbox';
-  if (event.ticket.ticketer.name.indexOf('Email') > -1) {
-    icon = 'mail';
-  } else if (event.ticket.ticketer.name.indexOf('Zendesk') > -1) {
-    icon = 'zendesk';
-  }
-  return icon;
 };
 
 export const renderTicketAction = (
@@ -953,17 +1010,15 @@ export const renderTicketAction = (
   action: string,
   grouped: boolean
 ): TemplateResult => {
-  const reopened = new Date(event.created_on);
-  const icon = getTicketIcon(event);
   if (grouped) {
     return html`<div class="" style="display: flex">
-      <temba-icon name="${icon}"></temba-icon>
+      <temba-icon name="${Icon.inbox}"></temba-icon>
       <div class="description">
         ${getDisplayName(event.created_by)} ${action} a
         <span
           onclick="goto(event)"
           class="linked"
-          href="/ticket/all/open/${event.ticket.uuid}"
+          href="/ticket/all/open/${event.ticket.uuid}/"
         >
           ticket
         </span>
@@ -974,17 +1029,22 @@ export const renderTicketAction = (
   return html`
     <div class="assigned active">
       <div style="text-align:center">
-        ${getDisplayName(event.created_by)} ${action} this ticket
+        ${event.created_by
+          ? html` ${getDisplayName(event.created_by)} ${action} this ticket `
+          : html` This ticket was ${action} `}
       </div>
       <div class="subtext" style="justify-content:center">
-        ${timeSince(reopened, { hideRecentText: true, suffix: ' ago' })}
+        <temba-date
+          class="time"
+          value="${event.created_on}"
+          display="duration"
+        ></temba-date>
       </div>
     </div>
   `;
 };
 
 export const renderTicketAssigned = (event: TicketEvent): TemplateResult => {
-  const created = new Date(event.created_on);
   return html`
     <div class="assigned active">
       <div style="text-align:center">
@@ -996,7 +1056,11 @@ export const renderTicketAssigned = (event: TicketEvent): TemplateResult => {
           : html`${getDisplayName(event.created_by)} unassigned this ticket`}
       </div>
       <div class="subtext" style="justify-content:center">
-        ${timeSince(created, { hideRecentText: true, suffix: ' ago' })}
+        <temba-date
+          class="time"
+          value="${event.created_on}"
+          display="duration"
+        ></temba-date>
       </div>
     </div>
   `;
@@ -1007,17 +1071,15 @@ export const renderTicketOpened = (
   handleClose: (uuid: string) => void,
   grouped: boolean
 ): TemplateResult => {
-  const icon = getTicketIcon(event);
-
   if (grouped) {
     return html`<div class="" style="display: flex">
-      <temba-icon name="${icon}"></temba-icon>
+      <temba-icon name="${Icon.inbox}"></temba-icon>
       <div class="description">
         ${event.ticket.topic.name}
         <span
           class="linked"
           onclick="goto(event)"
-          href="/tickets/all/open/${event.ticket.uuid}"
+          href="/ticket/all/open/${event.ticket.uuid}"
           >ticket</span
         >
         was opened
@@ -1025,30 +1087,18 @@ export const renderTicketOpened = (
     </div>`;
   } else {
     return html`
-      <temba-icon size="1.5" name="${icon}"></temba-icon>
-
-      <div class="active" style="flex-grow:1;">
-        Opened
-        <div class="attn">
-          ${event.ticket.topic ? event.ticket.topic.name : 'General'}
+      <div>
+        <div style="text-align:center">
+          ${getDisplayName(event.created_by)} opened this ticket
         </div>
-        <div class="subtext">${timeSince(new Date(event.created_on))}</div>
+        <div class="subtext" style="justify-content:center">
+          <temba-date
+            class="time"
+            value="${event.created_on}"
+            display="duration"
+          ></temba-date>
+        </div>
       </div>
-      ${handleClose
-        ? html`
-            <temba-tip text="Resolve" position="left" style="width:1.5em">
-              <temba-icon
-                class="clickable"
-                size="1.5"
-                name="check"
-                @click=${() => {
-                  handleClose(event.ticket.uuid);
-                }}
-                ?clickable=${open}
-              />
-            </temba-tip>
-          `
-        : null}
     `;
   }
 };
@@ -1058,8 +1108,8 @@ export const renderErrorMessage = (
 ): TemplateResult => {
   return html`
     <temba-icon
-      name="alert-triangle"
-      style="fill:var(--color-error)"
+      name="${Icon.error}"
+      style="--icon-color:var(--color-error)"
     ></temba-icon>
     <div class="description">
       ${event.text}
@@ -1076,7 +1126,7 @@ export const renderWebhookEvent = (event: WebhookEvent): TemplateResult => {
       class="${event.status === 'success' ? '' : 'failed'}"
       style="display: flex"
     >
-      <temba-icon name="external-link"></temba-icon>
+      <temba-icon name="${Icon.webhook}"></temba-icon>
       <div class="description">
         ${event.status === 'success'
           ? html`Successfully called ${event.url}`
@@ -1091,13 +1141,13 @@ export const renderAirtimeTransferredEvent = (
 ): TemplateResult => {
   if (parseFloat(event.actual_amount) === 0) {
     return html`<temba-icon
-        name="alert-triangle"
-        style="fill:var(--color-error)"
+        name="${Icon.error}"
+        style="--icon-color: var(--color-error)"
       ></temba-icon>
       <div class="description error">Airtime transfer failed</div>`;
   }
 
-  return html`<temba-icon name="dollar-sign"></temba-icon>
+  return html`<temba-icon name="${Icon.airtime}"></temba-icon>
     <div class="description">
       Transferred
       <div class="attn">${event.actual_amount} ${event.currency}</div>
@@ -1106,48 +1156,65 @@ export const renderAirtimeTransferredEvent = (
 };
 
 export const renderCallStartedEvent = (): TemplateResult => {
-  return html`<temba-icon name="phone"></temba-icon>
+  return html`<temba-icon name="${Icon.call}"></temba-icon>
     <div class="description">Call Started</div>`;
 };
 
 export const renderContactLanguageChangedEvent = (
   event: ContactLanguageChangedEvent
 ): TemplateResult => {
-  return html`<temba-icon name="contact"></temba-icon>
+  return html`<temba-icon name="${Icon.contact_updated}"></temba-icon>
     <div class="description">
       Language updated to <span class="attn">${event.language}</span>
     </div>`;
 };
 
-export const renderChannelEvent = (event: ChannelEvent): TemplateResult => {
-  let eventMessage = '';
-  let icon = 'phone';
+export const renderOptinRequested = (
+  event: OptinRequestedEvent
+): TemplateResult => {
+  return html`<temba-icon name="${Icon.optin_requested}"></temba-icon>
+    <div class="description">
+      Requested opt-in for <span class="attn">${event.optin.name}</span>
+    </div>`;
+};
 
-  if (event.channel_event_type === 'mt_miss') {
+export const renderChannelEvent = (event: ChannelEvent): TemplateResult => {
+  let eventMessage: string | TemplateResult = '';
+  let icon = Icon.call;
+
+  if (event.event.type === 'mt_miss') {
     eventMessage = 'Missed outgoing call';
-    icon = 'phone-missed';
-  } else if (event.channel_event_type === 'mo_miss') {
+    icon = Icon.call_missed;
+  } else if (event.event.type === 'mo_miss') {
     eventMessage = 'Missed incoming call';
-    icon = 'phone-missed';
-  } else if (event.channel_event_type === 'new_conversation') {
+    icon = Icon.call_missed;
+  } else if (event.event.type === 'new_conversation') {
     eventMessage = 'Started Conversation';
-    icon = 'zap';
+    icon = Icon.event;
   } else if (event.channel_event_type === 'welcome_message') {
     eventMessage = 'Welcome Message Sent';
-    icon = 'zap';
-  } else if (event.channel_event_type === 'referral') {
+    icon = Icon.event;
+  } else if (event.event.type === 'referral') {
     eventMessage = 'Referred';
-    icon = 'zap';
-  } else if (event.channel_event_type === 'follow') {
+    icon = Icon.event;
+  } else if (event.event.type === 'follow') {
     eventMessage = 'Followed';
-    icon = 'zap';
-  } else if (event.channel_event_type === 'stop_contact') {
+    icon = Icon.event;
+  } else if (event.event.type === 'stop_contact') {
     eventMessage = 'Stopped';
-    icon = 'x-octagon';
-  } else if (event.channel_event_type === 'mt_call') {
+    icon = Icon.contact_stopped;
+  } else if (event.event.type === 'mt_call') {
     eventMessage = 'Outgoing Phone Call';
-  } else if (event.channel_event_type == 'mo_call') {
+  } else if (event.event.type == 'mo_call') {
     eventMessage = 'Incoming Phone call';
+  } else if (event.event.type == 'optin') {
+    eventMessage = html`Opted in to
+      <span class="attn">${event.event.optin?.name}</span>`;
+    icon = Icon.optin;
+  } else if (event.event.type == 'optout') {
+    eventMessage = html`Opted out of
+      <span class="attn">${event.event.optin?.name}</span>`;
+    icon = Icon.optout;
   }
 
   return html`<temba-icon name="${icon}"></temba-icon>
@@ -1157,21 +1224,21 @@ export const renderChannelEvent = (event: ChannelEvent): TemplateResult => {
 export const renderCampaignFiredEvent = (
   event: CampaignFiredEvent
 ): TemplateResult => {
-  return html`<temba-icon name="campaign"></temba-icon>
+  return html`<temba-icon name="${Icon.campaign}"></temba-icon>
     <div class="description">
       Campaign
       <span
         class="linked"
-        onclick="goto(event)"
-        href="/campaign/read/${event.campaign.uuid}"
+        onclick="goto(event, this)"
+        href="/campaign/read/${event.campaign.uuid}/"
         >${event.campaign.name}</span
       >
       ${event.fired_result === 'S' ? 'skipped' : 'triggered'}
       <span
         class="linked"
-        onclick="goto(event)"
+        onclick="goto(event, this)"
         href="/campaignevent/read/${event.campaign.uuid}/${event.campaign_event
-          .id}"
+          .id}/"
       >
         ${event.campaign_event.offset_display}
         ${event.campaign_event.relative_to.name}</span
@@ -1186,7 +1253,7 @@ export const renderContactGroupsEvent = (
   const added = !!event.groups_added;
   return html`
     <temba-icon
-      name="users"
+      name="${Icon.users}"
       class="${getClasses({ added: added, removed: !added })}"
     ></temba-icon>
     <div class="description">

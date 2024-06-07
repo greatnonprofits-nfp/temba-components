@@ -1,18 +1,15 @@
 import { TemplateResult, html, css } from 'lit';
-import { property } from 'lit/decorators';
-import { unsafeHTML } from 'lit-html/directives/unsafe-html';
+import { property } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit-html/directives/unsafe-html.js';
 
 import { RapidElement } from '../RapidElement';
-import { getUrl, serialize, postUrl, WebResponse } from '../utils';
+import { getUrl, serialize, postUrl, WebResponse, getClasses } from '../utils';
 import { CustomEventType } from '../interfaces';
-import { Dialog } from './Dialog';
+import { ButtonType, Dialog, DialogButton } from './Dialog';
 
 export class Modax extends RapidElement {
   static get styles() {
     return css`
-      :host {
-      }
-
       fieldset {
         border: none;
         margin: 0;
@@ -24,6 +21,11 @@ export class Modax extends RapidElement {
       }
 
       .form-actions {
+        display: none;
+      }
+
+      button[type='submit'],
+      input[type='submit'] {
         display: none;
       }
 
@@ -44,10 +46,6 @@ export class Modax extends RapidElement {
         background: rgba(200, 200, 200, 0.1);
         position: absolute;
         z-index: 10000;
-      }
-
-      temba-dialog {
-        --transition-speed: var(--transition-speed);
       }
 
       temba-loading {
@@ -72,7 +70,33 @@ export class Modax extends RapidElement {
         padding: 10px;
         margin-bottom: 10px;
         border-radius: 6px;
-        font-weight: 300;
+      }
+
+      .step-ball {
+        background: rgba(var(--primary-rgb), 0.2);
+        width: 1.2em;
+        height: 1.2em;
+        border-radius: 100%;
+        margin-right: 0.5em;
+        border: 0.15em solid transparent;
+      }
+
+      .step-ball.complete {
+        background: rgba(var(--primary-rgb), 0.7);
+        cursor: pointer;
+      }
+      .step-ball.complete:hover {
+        background: rgba(var(--primary-rgb), 0.8);
+      }
+
+      .step-ball.active {
+        border: 0.15em solid var(--color-primary-dark);
+      }
+
+      .wizard-steps {
+        display: flex;
+        flex-direction: row;
+        margin-left: 0.6em;
       }
     `;
   }
@@ -113,12 +137,18 @@ export class Modax extends RapidElement {
   @property({ type: Boolean })
   disabled = false;
 
+  @property({ type: Array })
+  buttons: DialogButton[] = [];
+
+  @property({ type: Number })
+  wizardStep = 0;
+
+  @property({ type: Number })
+  wizardStepCount = 0;
+
   @property({ type: Boolean })
   suspendSubmit = false;
   // private cancelToken: CancelTokenSource;
-
-  // http promise to monitor for completeness
-  public httpComplete: Promise<void | WebResponse>;
 
   private handleSlotClicked(): void {
     this.open = true;
@@ -134,10 +164,16 @@ export class Modax extends RapidElement {
         // open can get reflected into undefined, make sure we've been open before
         if (changes.get('open') !== undefined) {
           // hide our body after our hiding animation is done
-          window.setTimeout(() => {
-            this.body = this.getLoading();
-            this.submitting = false;
-          }, 500);
+          if (this.open) {
+            window.setTimeout(() => {
+              this.body = this.getLoading();
+              this.submitting = false;
+            }, 500);
+          } else {
+            // clear the modal body out when closed, note that js functions declared on the
+            // window will hang around
+            this.setBody('');
+          }
         }
       }
     }
@@ -152,22 +188,33 @@ export class Modax extends RapidElement {
     return html`<temba-loading units="6" size="8"></temba-loading>`;
   }
 
-  private updatePrimaryButton(): void {
+  public updatePrimaryButton(): void {
+    const wizard = this.shadowRoot.querySelector(
+      '#wizard-form'
+    ) as HTMLDivElement;
+    if (wizard) {
+      this.wizardStep = parseInt(wizard.dataset.step);
+      this.wizardStepCount = parseInt(wizard.dataset.steps);
+    }
+
     if (!this.noSubmit) {
-      window.setTimeout(() => {
+      this.updateComplete.then(() => {
         const submitButton = this.shadowRoot.querySelector(
-          "input[type='submit']"
+          "input[type='submit'],button[type='submit']"
         ) as any;
 
         if (submitButton) {
-          this.primaryName = submitButton.value;
+          this.buttons = [
+            { type: ButtonType.SECONDARY, name: 'Cancel', closes: true },
+            { type: ButtonType.PRIMARY, name: submitButton.value }
+          ];
         } else {
-          this.primaryName = null;
-          this.cancelName = 'Ok';
+          this.buttons = [
+            { type: ButtonType.SECONDARY, name: 'Ok', closes: true }
+          ];
         }
-
         this.submitting = false;
-      }, 0);
+      });
     }
   }
 
@@ -182,13 +229,6 @@ export class Modax extends RapidElement {
     const div = this.ownerDocument.createElement('div');
     div.innerHTML = body;
     const scripts = div.getElementsByTagName('script');
-
-    // IE bleeds through, avoid bootstrap form spans that breaks layout
-    const spans = div.getElementsByClassName('span12') as any;
-    for (const span of spans) {
-      span.className = '';
-    }
-
     const toAdd: any = [];
     // now add them in
     for (let i = scripts.length - 1; i >= 0; i--) {
@@ -196,7 +236,7 @@ export class Modax extends RapidElement {
       const script = this.ownerDocument.createElement('script');
       const code = scripts[i].innerText;
 
-      if (scripts[i].src) {
+      if (scripts[i].src && scripts[i].src.indexOf('web-dev-server') === -1) {
         script.src = scripts[i].src;
         script.type = 'text/javascript';
         script.async = true;
@@ -219,12 +259,11 @@ export class Modax extends RapidElement {
       this.body = unsafeHTML(div.innerHTML);
     }
 
-    window.setTimeout(() => {
+    this.updateComplete.then(() => {
       for (const script of toAdd) {
         scriptBlock.appendChild(script);
       }
-    }, 0);
-
+    });
     return !scriptOnly;
   }
 
@@ -239,26 +278,41 @@ export class Modax extends RapidElement {
     // this.cancelToken = CancelToken.source();
     this.fetching = true;
     this.body = this.getLoading();
-    this.httpComplete = getUrl(this.endpoint, null, this.getHeaders()).then(
+    getUrl(this.endpoint, null, this.getHeaders()).then(
       (response: WebResponse) => {
-        this.setBody(response.body);
-        this.updatePrimaryButton();
-        this.fetching = false;
-        window.setTimeout(() => {
-          this.fireCustomEvent(CustomEventType.Loaded, {
-            body: this.getBody(),
+        // if it's a full page, breakout of the modal
+        if (response.body.indexOf('<!DOCTYPE HTML>') == 0) {
+          document.location = response.url;
+        } else {
+          this.setBody(response.body);
+          this.fetching = false;
+          this.updateComplete.then(() => {
+            this.updatePrimaryButton();
+            this.fireCustomEvent(CustomEventType.Loaded, {
+              body: this.getBody()
+            });
           });
-        }, 0);
+        }
       }
     );
   }
 
-  public submit(): void {
+  public submit(extra = {}): void {
     this.submitting = true;
     const form = this.shadowRoot.querySelector('form');
-    const postData = form ? serialize(form) : {};
 
-    this.httpComplete = postUrl(
+    let postData = form ? serialize(form) : '';
+    if (extra) {
+      Object.keys(extra).forEach((key) => {
+        postData +=
+          (postData.length > 1 ? '&' : '') +
+          encodeURIComponent(key) +
+          '=' +
+          encodeURIComponent(extra[key]);
+      });
+    }
+
+    postUrl(
       this.endpoint,
       postData,
       this.getHeaders(),
@@ -277,40 +331,43 @@ export class Modax extends RapidElement {
 
           if (redirect) {
             if (redirect === 'hide') {
-              window.setTimeout(() => {
+              this.updateComplete.then(() => {
                 this.open = false;
                 this.fireCustomEvent(CustomEventType.Submitted);
-              }, 0);
+              });
             } else {
               this.fireCustomEvent(CustomEventType.Redirected, {
-                url: redirect,
+                url: redirect
               });
               this.open = false;
             }
           } else {
             // if we set the body, update our submit button
             if (this.setBody(response.body)) {
-              this.updatePrimaryButton();
+              this.updateComplete.then(() => {
+                this.updatePrimaryButton();
+              });
             }
           }
         }, 1000);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error(error);
       });
   }
 
   private handleDialogClick(evt: CustomEvent) {
     const button = evt.detail.button;
+    const detail = evt.detail.detail;
     if (!button.disabled && !button.submitting) {
-      if (button.name === this.primaryName) {
+      if (button.primary || button.destructive) {
         if (!this.suspendSubmit) {
           this.submit();
         }
       }
     }
 
-    if (button.name === (this.cancelName || 'Cancel')) {
+    if (detail.closes) {
       this.open = false;
       this.fetching = false;
       this.cancelName = undefined;
@@ -327,16 +384,47 @@ export class Modax extends RapidElement {
     return this.endpoint && this.endpoint.indexOf('delete') > -1;
   }
 
+  private handleGotoStep(evt: MouseEvent) {
+    const step = (evt.target as HTMLDivElement).dataset.gotoStep;
+    if (step) {
+      this.submit({ wizard_goto_step: step });
+    }
+  }
+
   public getBody() {
     return this.shadowRoot.querySelector('.modax-body');
   }
 
   public render(): TemplateResult {
+    const wizardStepBalls = [];
+
+    const wizard = this.shadowRoot.querySelector(
+      '#wizard-form'
+    ) as HTMLDivElement;
+    if (wizard) {
+      const completed = (wizard.getAttribute('data-completed') || '')
+        .split(',')
+        .filter((step) => step.length > 0);
+
+      for (let i = 0; i < this.wizardStepCount; i++) {
+        wizardStepBalls.push(
+          html`<div
+            data-goto-step=${completed[i]}
+            @click=${this.handleGotoStep.bind(this)}
+            class="${getClasses({
+              'step-ball': true,
+              active: this.wizardStep - 1 === i,
+              complete: i < completed.length
+            })}"
+          ></div>`
+        );
+      }
+    }
+
     return html`
       <temba-dialog
-        header=${this.header}
-        .primaryButtonName=${this.noSubmit ? null : this.primaryName}
-        .cancelButtonName=${this.cancelName || 'Cancel'}
+        .header=${this.header}
+        .buttons=${this.buttons}
         ?open=${this.open}
         ?loading=${this.fetching}
         ?submitting=${this.submitting}
@@ -346,10 +434,16 @@ export class Modax extends RapidElement {
         @temba-button-clicked=${this.handleDialogClick.bind(this)}
         @temba-dialog-hidden=${this.handleDialogHidden.bind(this)}
       >
-        <div class="modax-body${this.submitting ? ' submitting' : ''}">
+        <div
+          class="modax-body ${this.submitting ? 'submitting' : ''}"
+          style="${this.isMobile() ? 'flex-grow:1' : ''}"
+        >
           ${this.body}
         </div>
         <div class="scripts"></div>
+        <div slot="gutter">
+          <div class="wizard-steps">${wizardStepBalls}</div>
+        </div>
       </temba-dialog>
       <div class="slot-wrapper" @click=${this.handleSlotClicked}>
         <slot></slot>

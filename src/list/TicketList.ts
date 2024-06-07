@@ -1,9 +1,8 @@
 import { html, TemplateResult } from 'lit';
-import { property } from 'lit/decorators';
+import { property } from 'lit/decorators.js';
 import { TembaList } from './TembaList';
-import { timeSince } from '../utils';
 import { Contact } from '../interfaces';
-import { renderAvatar } from '../contacts/events';
+import { Icon } from '../vectoricon';
 
 export class TicketList extends TembaList {
   @property({ type: String })
@@ -33,7 +32,7 @@ export class TicketList extends TembaList {
           >
             <div style="flex: 1; color:#333;">
               <div
-                style="font-weight:400;line-height:1.6;border:0px solid purple;"
+                style="font-weight:400;line-height:1.6;padding-right:0.5em;display:-webkit-box;-webkit-box-orient: vertical; -webkit-line-clamp: 1;overflow: hidden;"
               >
                 ${contact.name}
               </div>
@@ -57,7 +56,9 @@ export class TicketList extends TembaList {
                           : contact.last_msg.attachments
                           ? html`<div style="display:inline-block">
                               <div style="display:flex; margin-left:0.2em">
-                                <temba-icon name="paperclip"></temba-icon>
+                                <temba-icon
+                                  name="${Icon.attachment}"
+                                ></temba-icon>
                                 <div style="flex-grow:1;margin-left:0.2em">
                                   Attachment
                                 </div>
@@ -70,21 +71,25 @@ export class TicketList extends TembaList {
                 : null}
             </div>
             <div
-              style="font-size:0.8em;display:flex;flex-direction:column;align-items:flex-end;max-width:60px;min-width:30px;border:0px solid green;text-align:right"
+              style="margin-right: -5px; margin-top: 0px;display:flex;flex-direction:column;align-items:flex-end;max-width:60px;min-width:30px;border:0px solid green;text-align:right"
             >
-              <div style="padding:4px;padding-bottom:2px">
-                ${timeSince(
-                  new Date(
-                    contact.ticket.closed_on || contact.ticket.last_activity_on
-                  )
-                )}
-              </div>
-              <div style="font-size:0.7em;">
+              <div>
                 ${!contact.ticket.closed_on && contact.ticket.assignee
-                  ? html`${renderAvatar(contact.ticket.assignee, this.agent)}`
+                  ? html`<temba-user
+                      email=${contact.ticket.assignee.email}
+                      scale="0.8"
+                    ></temba-user>`
                   : null}
               </div>
             </div>
+          </div>
+
+          <div style="font-size:0.8em;text-align:right;border:0px solid red;">
+            <temba-date
+              value=${contact.ticket.closed_on ||
+              contact.ticket.last_activity_on}
+              display="duration"
+            ></temba-date>
           </div>
         </div>
       `;

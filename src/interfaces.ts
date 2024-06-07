@@ -8,21 +8,35 @@ export interface Workspace {
   anon: boolean;
 }
 
+export interface Language {
+  iso: string;
+  name: string;
+}
+
+export interface Attachment {
+  uuid: string;
+  content_type: string;
+  url: string;
+  filename: string;
+  size: number;
+  error: string;
+}
+
 export enum DateStyle {
   DayFirst = 'day_first',
   MonthFirst = 'month_first',
-  YearFirst = 'year_first',
+  YearFirst = 'year_first'
 }
 
 export enum ScheduledEventType {
   CampaignEvent = 'campaign_event',
   ScheduledBroadcast = 'scheduled_broadcast',
-  ScheduledTrigger = 'scheduled_trigger',
+  ScheduledTrigger = 'scheduled_trigger'
 }
 
 export enum TicketStatus {
   Open = 'open',
-  Closed = 'closed',
+  Closed = 'closed'
 }
 
 export interface ScheduledEvent {
@@ -41,6 +55,7 @@ export interface User {
   email?: string;
   role?: string;
   created_on?: string;
+  avatar?: string;
 }
 
 export interface Ticket {
@@ -51,9 +66,8 @@ export interface Ticket {
   opened_on: string;
   status: string;
   contact: ObjectReference;
-  ticketer: ObjectReference;
   topic: ObjectReference;
-  assignee?: User;
+  assignee?: { email: string; name: string; avatar?: string };
 }
 
 export interface FlowResult {
@@ -84,7 +98,6 @@ export interface Msg {
   id: number;
   direction: string;
   type: string;
-  created_by?: User;
   attachments: string[];
 }
 
@@ -97,8 +110,11 @@ export interface ContactField {
   key: string;
   label: string;
   value_type: string;
-  pinned: boolean;
+  featured: boolean;
   priority: number;
+  agent_access: string;
+  type: string;
+  usages: { campaign_events: number; flows: number; groups: number };
 }
 
 export interface ContactGroup {
@@ -234,9 +250,14 @@ export enum CustomEventType {
   ContentChanged = 'temba-content-changed',
   ContextChanged = 'temba-context-changed',
   FetchComplete = 'temba-fetch-complete',
+  MessageSent = 'temba-message-sent',
   Submitted = 'temba-submitted',
   Redirected = 'temba-redirected',
   NoPath = 'temba-no-path',
   StoreUpdated = 'temba-store-updated',
   Ready = 'temba-ready',
+  OrderChanged = 'temba-order-changed',
+  DragStart = 'temba-drag-start',
+  DragStop = 'temba-drag-stop',
+  Resized = 'temba-resized'
 }
