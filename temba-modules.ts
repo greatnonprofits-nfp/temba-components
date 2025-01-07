@@ -22,6 +22,7 @@ import { Omnibox } from './src/omnibox/Omnibox';
 import { Tip } from './src/tip/Tip';
 import { TembaMenu } from './src/list/TembaMenu';
 import { Anchor } from './src/anchor/Anchor';
+import { SpellCheckedTextInput } from './src/spell-checked-textinput/SpellCheckedTextInput';
 
 export function addCustomElement(name: string, comp: any) {
   if (!window.customElements.get(name)) {
@@ -33,6 +34,7 @@ addCustomElement('temba-anchor', Anchor);
 addCustomElement('temba-alert', Alert);
 addCustomElement('temba-store', Store);
 addCustomElement('temba-textinput', TextInput);
+addCustomElement('temba-spell-checked-textinput', SpellCheckedTextInput);
 addCustomElement('temba-completion', Completion);
 addCustomElement('temba-checkbox', Checkbox);
 addCustomElement('temba-select', Select);
