@@ -248,7 +248,7 @@ export class SpellCheckedTextInput extends FormElement {
   @property({ type: Boolean })
   private checkingSpelling = false;
 
-  @property({ type: TemplateResult })
+  @property({ type: {} as TemplateResult })
   private spellCheckResults: TemplateResult;
 
   @property({ type: SpellCheckerMode })
@@ -562,7 +562,7 @@ export class SpellCheckedTextInput extends FormElement {
           />`
         : null;
 
-    let input = html`
+    let input: TemplateResult<any> = html`
       <input
         class="textinput"
         name=${this.name}
