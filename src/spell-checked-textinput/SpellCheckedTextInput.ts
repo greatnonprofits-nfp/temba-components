@@ -12,10 +12,25 @@ enum SpellCheckerMode {
   EDIT,
 }
 
+interface SpellCheckerResult {
+  from: number;
+  to: number;
+  message: string;
+  suggestions: string[];
+}
+
+interface SpellCheckerResultPiece {
+  text: string;
+  result?: SpellCheckerResult;
+}
+
+type SpellCheckerFunc = (text: string) => Promise<SpellCheckerResult[]>;
+
 export class SpellCheckedTextInput extends FormElement {
   static get styles() {
     return css`
       .input-container {
+        position: relative;
         border-radius: var(--curvature-widget);
         cursor: text;
         background: var(--color-widget-bg);
@@ -102,6 +117,10 @@ export class SpellCheckedTextInput extends FormElement {
         width: 100%;
       }
 
+      .spell-correction {
+        text-decoration: var(--color-error) wavy underline;
+      }
+
       .grow-wrap > div {
         border: 0px solid green;
         width: 100%;
@@ -167,21 +186,36 @@ export class SpellCheckedTextInput extends FormElement {
   @property({ type: Boolean })
   autogrow = false;
 
+  @property({ type: Boolean })
+  private checkingSpelling = false;
+
+  @property({ type: TemplateResult })
+  private spellCheckResults: TemplateResult;
+
   @property({ type: SpellCheckerMode })
   spellCheckerMode = SpellCheckerMode.VIEW;
 
   counterElement: CharCount = null;
   cursorStart = -1;
   cursorEnd = -1;
+  spellCheckerFunc: SpellCheckerFunc;
 
   public constructor() {
     super();
+    if (Object.prototype.hasOwnProperty.call(window, 'spellCheckerFunc')) {
+      this.spellCheckerFunc = window['spellCheckerFunc'] as SpellCheckerFunc;
+    } else {
+      console.error(
+        "No 'spellCheckerFunc' of type '(text: string) => Promise<SpellCheckerResult[]>' is found."
+      );
+    }
   }
 
   public firstUpdated(changes: Map<string, any>) {
     super.firstUpdated(changes);
 
     this.inputElement = this.shadowRoot.querySelector('.textinput');
+    this.doSpellCheck();
 
     if (changes.has('counter')) {
       let root = this.getParentModax() as any;
@@ -275,6 +309,7 @@ export class SpellCheckedTextInput extends FormElement {
 
   private handleBlur() {
     // Hide the input field and show the text
+    this.doSpellCheck();
     this.spellCheckerMode = SpellCheckerMode.VIEW;
     this.blur();
   }
@@ -292,6 +327,68 @@ export class SpellCheckedTextInput extends FormElement {
   /** we just return the value since it should be a string */
   public serializeValue(value: any): string {
     return value;
+  }
+
+  public doSpellCheck(): void {
+    this.spellCheckResults = html`${this.value}`;
+    if (!this.spellCheckerFunc) {
+      this.spellCheckResults = html`${[{ text: this.value }].map(
+        this.renderSpellCheckResultPiece.bind(this)
+      )}`;
+      return;
+    }
+
+    this.checkingSpelling = true;
+    this.spellCheckerFunc(this.value)
+      .then((results: SpellCheckerResult[]) => {
+        const pieces: SpellCheckerResultPiece[] = [];
+        const resultsLength = results.length;
+        results
+          .sort((a, b) => a.from - b.from)
+          .reduce((offset, result, index) => {
+            // Add the text before the result
+            if (offset < result.from) {
+              pieces.push({ text: this.value.substring(offset, result.from) });
+            }
+            // Add the result
+            pieces.push({
+              text: this.value.substring(result.from, result.to),
+              result,
+            });
+            offset = result.to;
+            // Add the text after the last result
+            if (index + 1 === resultsLength && offset < this.value.length) {
+              pieces.push({ text: this.value.substring(offset) });
+            }
+            return offset;
+          }, 0);
+        this.spellCheckResults = html`${pieces.map(
+          this.renderSpellCheckResultPiece.bind(this)
+        )}`;
+        this.checkingSpelling = false;
+      })
+      .catch(error => {
+        console.error('Error checking spelling', error);
+        this.checkingSpelling = false;
+      });
+  }
+
+  private renderSpellCheckResultPiece(
+    piece: SpellCheckerResultPiece
+  ): TemplateResult {
+    const formatBreakLines = (text: string) => {
+      if (!this.textarea) return html`${text}`;
+      return text.split('\n').map((line, index, lines) => {
+        return index + 1 === lines.length ? html`${line}` : html`${line}<br />`;
+      });
+    };
+
+    if (!piece.result) {
+      return html`${formatBreakLines(piece.text)}`;
+    }
+    return html`
+      <span class="spell-correction"> ${formatBreakLines(piece.text)} </span>
+    `;
   }
 
   public getParentModax(): Modax {
@@ -342,13 +439,15 @@ export class SpellCheckedTextInput extends FormElement {
   private renderInputFieldOrDisplayField(input: TemplateResult) {
     if (this.spellCheckerMode === SpellCheckerMode.VIEW) {
       input = html`
-        <p class="textinput-view" style="cursor: pointer;">${this.value}</p>
+        <p class="textinput-view" style="cursor: pointer;">
+          ${this.spellCheckResults}
+        </p>
       `;
 
       if (this.textarea) {
         input = html`
           <p class="textinput-view textarea-view" style="cursor: pointer;">
-            ${this.value.split('\n').map(line => html`${line}<br />`)}
+            ${this.spellCheckResults}
           </p>
         `;
 

@@ -155,12 +155,25 @@
     </div>
 
     <div class="example">
+      <script type="application/javascript">
+        function spellCheckerFunc(text) {
+          return new Promise((resolve) => {
+            resolve([{
+              from: 12,
+              to: 18,
+              message: "Possible spelling mistake found.",
+              suggestions: ["Speer", "Speyer", "speller", "spewer"],
+            }]);
+          });
+        }
+      </script>
       <temba-spell-checked-textinput
         name="spell-checker"
         label="Spell Checker"
         help_text="This is field will autocorrect your spelling"
         placeholder="Put something down, for real"
-        value="I am a good speller"
+        value="I am a good speler"
+        spellCheckerFunc="spellCheck"
         textarea
         autogrow
       >
