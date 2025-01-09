@@ -1,9 +1,10 @@
-import { property, LitElement, TemplateResult, html, css } from 'lit-element';
+import { LitElement, TemplateResult, html, css } from 'lit';
+import { property } from 'lit/decorators';
 
 import { getClasses } from '../utils';
 
 // for cache busting, increase whenever the icon set changes
-const ICON_VERSION = 5;
+const ICON_VERSION = 6;
 
 export class VectorIcon extends LitElement {
   @property({ type: String })
@@ -103,7 +104,7 @@ export class VectorIcon extends LitElement {
         display: flex;
         flex-direction: column;
         border-radius: 999px;
-        transition: background 200ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
+        transition: background 200ms linear,
           transform 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55),
           padding 150ms linear, margin 150ms linear;
       }
@@ -113,8 +114,14 @@ export class VectorIcon extends LitElement {
       }
 
       .wrapper.clickable:hover {
-        padding: 0.35em;
-        margin: -0.35em;
+        --icon-circle-size: 0.35em;
+        --icon-background: var(--icon-color-circle-hover);
+      }
+
+      .wrapper.clickable {
+        padding: var(--icon-circle-size);
+        margin: calc(-1 * var(--icon-circle-size));
+        background: var(--icon-background);
       }
     `;
   }
