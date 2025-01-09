@@ -211,5 +211,33 @@
         datetimepicker
       ></temba-textinput>
     </div>
+
+    <div class="example">
+      <script type="application/javascript">
+        function spellCheckerFunc(text) {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              resolve([{
+                from: 12,
+                to: 19,
+                message: "Possible spelling mistake found.",
+                suggestions: ["speller", "spewer"],
+              }]);
+            }, 1000);
+          });
+        }
+      </script>
+      <temba-spell-checked-textinput
+        name="spell-checker"
+        label="Spell Checker"
+        help_text="This is field will autocorrect your spelling"
+        placeholder="Put something down, for real"
+        value="I am a good sprller"
+        spellCheckerFunc="spellCheck"
+        textarea
+        autogrow
+      >
+      </temba-spell-checked-textinput>
+    </div>
   </body>
 </html>
