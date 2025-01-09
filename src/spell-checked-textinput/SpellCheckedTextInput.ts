@@ -536,7 +536,7 @@ export class SpellCheckedTextInput extends FormElement {
         `;
 
         if (this.autogrow) {
-          input = html` <div class="grow-wrap">
+          input = html`<div class="grow-wrap">
             <div>
               ${this.value.split('\n').map(line => html`${line}<br />`)}
             </div>
@@ -648,6 +648,16 @@ export class SpellCheckedTextInput extends FormElement {
     }
 
     input = this.renderInputFieldOrDisplayField(input);
+    const loading = this.checkingSpelling
+      ? html` <div style="position: absolute; right: 10px; bottom: 5px">
+          <temba-loading
+            id="page-loader"
+            units="3"
+            size="5"
+            color="#ccc"
+          ></temba-loading>
+        </div>`
+      : null;
 
     return html`
       <temba-field
@@ -664,7 +674,7 @@ export class SpellCheckedTextInput extends FormElement {
           style=${styleMap(containerStyle)}
           @click=${this.handleContainerClick}
         >
-          ${input} ${clear}
+          ${input} ${clear} ${loading}
           <slot></slot>
         </div>
       </temba-field>
