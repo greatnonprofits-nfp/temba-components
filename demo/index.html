@@ -160,9 +160,9 @@
           return new Promise((resolve) => {
             resolve([{
               from: 12,
-              to: 18,
+              to: 19,
               message: "Possible spelling mistake found.",
-              suggestions: ["Speer", "Speyer", "speller", "spewer"],
+              suggestions: ["speller", "spewer"],
             }]);
           });
         }
@@ -172,7 +172,7 @@
         label="Spell Checker"
         help_text="This is field will autocorrect your spelling"
         placeholder="Put something down, for real"
-        value="I am a good speler"
+        value="I am a good sprller"
         spellCheckerFunc="spellCheck"
         textarea
         autogrow

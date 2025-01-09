@@ -118,7 +118,66 @@ export class SpellCheckedTextInput extends FormElement {
       }
 
       .spell-correction {
+        position: relative;
+      }
+
+      .spell-correction .text {
+        cursor: text;
+        display: inline;
         text-decoration: var(--color-error) wavy underline;
+      }
+
+      .spell-correction .tooltip {
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+        position: absolute;
+        bottom: 18px;
+        left: 50%;
+        min-width: 120px;
+        transform: translateX(-50%);
+        cursor: default;
+
+        color: white;
+        padding: 6px;
+        color: var(--color-widget-text);
+        background: var(--color-widget-bg);
+        border: 1px solid var(--color-widget-border);
+        border-radius: var(--curvature-widget);
+        box-shadow: var(--widget-box-shadow);
+        z-index: 100;
+      }
+
+      .spell-correction:hover .tooltip {
+        display: flex;
+      }
+
+      .spell-correction .tooltip .tail {
+        position: absolute;
+        bottom: -4px;
+        left: 50%;
+        transform: translateX(-50%) rotate(-45deg);
+        width: 5px;
+        height: 5px;
+        border-left: 1px solid var(--color-widget-border);
+        border-bottom: 1px solid var(--color-widget-border);
+        background: var(--color-widget-bg);
+      }
+
+      .spell-correction .tooltip .suggestions {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .spell-correction .tooltip .suggestion {
+        cursor: pointer;
+        text-decoration: var(--color-link-primary) underline;
+      }
+
+      .spell-correction .tooltip .suggestion:hover {
+        font-weight: bold;
       }
 
       .grow-wrap > div {
@@ -387,7 +446,32 @@ export class SpellCheckedTextInput extends FormElement {
       return html`${formatBreakLines(piece.text)}`;
     }
     return html`
-      <span class="spell-correction"> ${formatBreakLines(piece.text)} </span>
+      <span class="spell-correction">
+        <div class="text">${formatBreakLines(piece.text)}</div>
+        <div class="tooltip">
+          <div class="message">${piece.result.message}</div>
+          <div class="suggestions">
+            ${piece.result.suggestions.map(
+              suggestion =>
+                html`<div
+                  @click="${evt => {
+                    evt.stopPropagation();
+                    evt.preventDefault();
+                    this.value =
+                      this.value.substring(0, piece.result.from) +
+                      suggestion +
+                      this.value.substring(piece.result.to);
+                    this.doSpellCheck();
+                  }}"
+                  class="suggestion"
+                >
+                  ${suggestion}
+                </div>`
+            )}
+          </div>
+          <div class="tail"></div>
+        </div>
+      </span>
     `;
   }
 
