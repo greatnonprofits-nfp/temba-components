@@ -1,104 +1,88 @@
 <!DOCTYPE html>
 <html lang="en-GB">
-  <head>
-    <meta charset="utf-8" />
-    <link
-      href="/sitestatic/css/temba-components.css"
-      rel="stylesheet"
-      type="text/css"
-    />
+<head>
+  <meta charset="utf-8" />
+  <link
+    href="/sitestatic/css/temba-components.css"
+    rel="stylesheet"
+    type="text/css"
+  />
 
-    <link
-      href="https://fonts.googleapis.com/css?family=Roboto+Mono:300|Roboto:300,400,500"
-      rel="stylesheet"
-    />
+  <link
+    href="https://fonts.googleapis.com/css?family=Roboto+Mono:300|Roboto:300,400,500"
+    rel="stylesheet"
+  />
 
-    <style>
+  <style>
 
-      .linked {
-        text-decoration: underline;
-        color: blue;
-        cursor: pointer;
+    .linked {
+      text-decoration: underline;
+      color: blue;
+      cursor: pointer;
+    }
+
+    .example {
+      border: 0px solid gray;
+      padding: 10px;
+      max-width: 500px;
+      --temba-select-selected-font-size: 1em;
+    }
+
+    temba-dropdown.open {
+      --icon-background: rgb(241, 241, 241);
+      --icon-circle-size: 0.35em;
+    }
+
+    .more {
+      background: rgba(0, 0, 0, .1);
+      padding: 0.5em
+    }
+
+    .open .more, .more:hover {
+      background: rgba(0, 0, 0, .3);
+    }
+
+    temba-tabs *, temba-tab * {
+      opacity: 0;
+    }
+
+    temba-tabs:defined *, temba-tab:defined * {
+      opacity: 1;
+    }
+
+  </style>
+  <script type="module">
+    import '../out-tsc/temba-modules.js';
+  </script>
+  <script>
+    // var static_url = '/static/';
+    function handleColorChange(event) {
+      var color = event.target.values[0].name;
+      if (color == 'Green') {
+        event.target.infoText = 'Green is super dangerous!';
+      } else {
+        event.target.infoText = null;
       }
+    }
+  </script>
+</head>
+<body>
+<temba-store
+  completion="/static/api/completion.json"
+  functions="/static/api/functions.json"
+  fields="/static/api/fields.json"
+  globals="/static/api/globals.json"
+  groups="/static/api/groups.json"
+></temba-store>
 
-      .example {
-        border: 0px solid gray;
-        padding: 10px;
-        max-width: 500px;
-        --temba-select-selected-font-size: 1em;
-        display:none;
-      }
-
-      temba-dropdown.open {
-        --icon-background: rgb(241,241,241);
-        --icon-circle-size: 0.35em;
-      }
-
-      .more {
-        background: rgba(0,0,0,.1);
-        padding: 0.5em
-      }
-
-      .open .more, .more:hover {
-        background: rgba(0,0,0,.3);
-      }
-
-      temba-tabs *, temba-tab * {
-        opacity: 0;
-      }
-
-      temba-tabs:defined *, temba-tab:defined * {
-        opacity: 1;
-      }
-
-    </style>
-    <script type="module">
-      import '../out-tsc/temba-modules.js';
-    </script>
-    <script>
-      // var static_url = '/static/';
-      function handleColorChange(event) {
-        var color = event.target.values[0].name;
-        if (color == 'Green') {
-          event.target.infoText = 'Green is super dangerous!';
-        } else {
-          event.target.infoText = null;
-        }
-      }
-    </script>
-  </head>
-  <body>
-    <temba-store
-      completion="/static/api/completion.json"
-      functions="/static/api/functions.json"
-      fields="/static/api/fields.json"
-      globals="/static/api/globals.json"
-      groups="/static/api/groups.json"
-    ></temba-store>
-
-    <temba-tabs>
-
-      <temba-tab name="Chats" icon="message-square">
-        Chat content
-      </temba-tab>
-
-      <temba-tab name="Details" icon="list">
-        Details content
-      </temba-tab>
-
-      <temba-tab name="Log" icon="log">
-       Log content
-      </temba-tab>
-
-    </temba-tabs>
-
-    
+<temba-tabs>
+  <temba-tab name="Components" icon="settings">
     <div class="example" style="margin: 10px; background: #ccc; border-radius:6px;">
       <temba-dropdown>
         <div style="display:inline-block" slot="toggle">
           <temba-icon name="chevron-down" size="1.3" clickable></temba-icon>
         </div>
-        
+
         <div slot="dropdown" style="width:250px; padding:0.5em 1em">
           <a href="http://google.com">Google</a>
         </div>
@@ -220,8 +204,8 @@
               resolve([{
                 from: 12,
                 to: 19,
-                message: "Possible spelling mistake found.",
-                suggestions: ["speller", "spewer"],
+                message: 'Possible spelling mistake found.',
+                suggestions: ['speller', 'spewer']
               }]);
             }, 1000);
           });
@@ -239,5 +223,20 @@
       >
       </temba-spell-checked-textinput>
     </div>
-  </body>
+  </temba-tab>
+
+  <temba-tab name="Chats" icon="message-square">
+    Chat content
+  </temba-tab>
+
+  <temba-tab name="Details" icon="list">
+    Details content
+  </temba-tab>
+
+  <temba-tab name="Log" icon="log">
+    Log content
+  </temba-tab>
+
+</temba-tabs>
+</body>
 </html>

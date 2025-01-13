@@ -115,12 +115,15 @@ export class Completion extends FormElement {
   @property({ type: String })
   counter: string;
 
+  @property({ type: Boolean })
+  spellchecker: boolean;
+
   private hiddenElement: HTMLInputElement;
   private query: string;
 
   public firstUpdated() {
     this.textInputElement = this.shadowRoot.querySelector(
-      'temba-textinput'
+      this.spellchecker ? 'temba-spell-checked-textinput' : 'temba-textinput'
     ) as TextInput;
     this.anchorElement = this.shadowRoot.querySelector('#anchor');
 
@@ -248,20 +251,33 @@ export class Completion extends FormElement {
       >
         <div class="comp-container">
           <div id="anchor" style=${styleMap(anchorStyles)}></div>
-          <temba-textinput
-            name=${this.name}
-            placeholder=${this.placeholder}
-            gsm=${this.gsm}
-            counter=${ifDefined(this.counter)}
-            @keyup=${this.handleKeyUp}
-            @click=${this.handleClick}
-            @input=${this.handleInput}
-            @blur=${this.handleOptionCanceled}
-            .value=${this.value}
-            ?textarea=${this.textarea}
-            ?submitOnEnter=${this.submitOnEnter}
-          >
-          </temba-textinput>
+          ${this.spellchecker
+            ? html`<temba-spell-checked-textinput
+                name=${this.name}
+                placeholder=${this.placeholder}
+                gsm=${this.gsm}
+                counter=${ifDefined(this.counter)}
+                @keyup=${this.handleKeyUp}
+                @click=${this.handleClick}
+                @input=${this.handleInput}
+                @blur=${this.handleOptionCanceled}
+                .value=${this.value}
+                ?textarea=${this.textarea}
+                ?submitOnEnter=${this.submitOnEnter}
+              ></temba-spell-checked-textinput>`
+            : html`<temba-textinput
+                name=${this.name}
+                placeholder=${this.placeholder}
+                gsm=${this.gsm}
+                counter=${ifDefined(this.counter)}
+                @keyup=${this.handleKeyUp}
+                @click=${this.handleClick}
+                @input=${this.handleInput}
+                @blur=${this.handleOptionCanceled}
+                .value=${this.value}
+                ?textarea=${this.textarea}
+                ?submitOnEnter=${this.submitOnEnter}
+              ></temba-textinput>`}
           <temba-options
             @temba-selection=${this.handleOptionSelection}
             @temba-canceled=${this.handleOptionCanceled}

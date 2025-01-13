@@ -1,11 +1,11 @@
-import 'lit-flatpickr';
-import { css, html, property, TemplateResult } from 'lit-element';
+import { TemplateResult, html, css } from 'lit';
+import { property, state } from 'lit/decorators';
 import { ifDefined } from 'lit-html/directives/if-defined';
 import { styleMap } from 'lit-html/directives/style-map';
-import { CharCount } from '../charcount/CharCount';
-import { sanitize } from '../textinput/helpers';
-import { Modax } from '../dialog/Modax';
 import { FormElement } from '../FormElement';
+import { Modax } from '../dialog/Modax';
+import { sanitize } from '../textinput/helpers';
+import { CharCount } from '../charcount/CharCount';
 
 enum SpellCheckerMode {
   VIEW,
@@ -245,13 +245,13 @@ export class SpellCheckedTextInput extends FormElement {
   @property({ type: Boolean })
   autogrow = false;
 
-  @property({ type: Boolean })
+  @state()
   private checkingSpelling = false;
 
-  @property({ type: {} as TemplateResult })
+  @state()
   private spellCheckResults: TemplateResult;
 
-  @property({ type: SpellCheckerMode })
+  @state()
   spellCheckerMode = SpellCheckerMode.VIEW;
 
   counterElement: CharCount = null;
@@ -294,13 +294,6 @@ export class SpellCheckedTextInput extends FormElement {
     if (changes.has('value')) {
       this.setValues([this.value]);
       this.fireEvent('change');
-
-      if (this.textarea && this.autogrow) {
-        const autogrow = this.shadowRoot.querySelector(
-          '.grow-wrap > div'
-        ) as HTMLDivElement;
-        autogrow.innerText = this.value + String.fromCharCode(10);
-      }
 
       if (this.cursorStart > -1 && this.cursorEnd > -1) {
         this.inputElement.setSelectionRange(this.cursorStart, this.cursorEnd);
@@ -368,8 +361,8 @@ export class SpellCheckedTextInput extends FormElement {
 
   private handleBlur() {
     // Hide the input field and show the text
-    this.doSpellCheck();
     this.spellCheckerMode = SpellCheckerMode.VIEW;
+    this.doSpellCheck();
     this.blur();
   }
 
@@ -389,7 +382,7 @@ export class SpellCheckedTextInput extends FormElement {
   }
 
   public doSpellCheck(): void {
-    this.spellCheckResults = html`${this.value}`;
+    this.spellCheckResults = html`${this.renderText(this.value)}`;
     if (!this.spellCheckerFunc) {
       this.spellCheckResults = html`${[{ text: this.value }].map(
         this.renderSpellCheckResultPiece.bind(this)
@@ -435,25 +428,18 @@ export class SpellCheckedTextInput extends FormElement {
   private renderSpellCheckResultPiece(
     piece: SpellCheckerResultPiece
   ): TemplateResult {
-    const formatBreakLines = (text: string) => {
-      if (!this.textarea) return html`${text}`;
-      return text.split('\n').map((line, index, lines) => {
-        return index + 1 === lines.length ? html`${line}` : html`${line}<br />`;
-      });
-    };
-
     if (!piece.result) {
-      return html`${formatBreakLines(piece.text)}`;
+      return html`${this.renderText(piece.text)}`;
     }
     return html`
       <span class="spell-correction">
-        <div class="text">${formatBreakLines(piece.text)}</div>
+        <div class="text">${this.renderText(piece.text)}</div>
         <div class="tooltip">
           <div class="message">${piece.result.message}</div>
           <div class="suggestions">
             ${piece.result.suggestions.map(
               suggestion =>
-                html`<div
+                html` <div
                   @click="${evt => {
                     evt.stopPropagation();
                     evt.preventDefault();
@@ -473,6 +459,16 @@ export class SpellCheckedTextInput extends FormElement {
         </div>
       </span>
     `;
+  }
+
+  private renderText(text: string): TemplateResult {
+    text = text.replace(/ /g, '&nbsp;'); // Replace spaces with &nbsp;
+    text = text.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;'); // Replace tabs with 4 &nbsp;
+    if (this.textarea) text = text.replace(/\n/g, '<br />'); // Replace newlines with <br />
+    const strings = Object.freeze([text]);
+    const raw = Object.freeze([text]);
+    const templateStringsArray = Object.assign([], strings, { raw });
+    return html`${html(templateStringsArray)}`;
   }
 
   public getParentModax(): Modax {
@@ -536,10 +532,8 @@ export class SpellCheckedTextInput extends FormElement {
         `;
 
         if (this.autogrow) {
-          input = html`<div class="grow-wrap">
-            <div>
-              ${this.value.split('\n').map(line => html`${line}<br />`)}
-            </div>
+          input = html` <div class="grow-wrap">
+            <div>${this.renderText(this.value)}</div>
             ${input}
           </div>`;
         }
@@ -641,7 +635,7 @@ export class SpellCheckedTextInput extends FormElement {
 
       if (this.autogrow) {
         input = html` <div class="grow-wrap">
-          <div>${this.value.split('\n').map(line => html`${line}<br />`)}</div>
+          <div>${this.renderText(this.value)}</div>
           ${input}
         </div>`;
       }
